@@ -50,6 +50,9 @@
       <a-box width="0.15" height="0.15" depth="0.015" color="#c62828"></a-box>
       <a-cylinder radius="0.012" height="0.1" color="#8B4513" position="0 -0.12 0"></a-cylinder>
     </a-entity>
+    
+    <!-- Debug: green sphere at EXACT controller grip position -->
+    <a-sphere id="grip-debug" radius="0.03" color="#00ff00" position="0 1 0"></a-sphere>
 
     <!-- VR UI -->
     <a-text id="vr-score" value="0 — 0" position="0 2.2 -1.5" align="center" color="#fff" width="6"></a-text>
@@ -87,7 +90,7 @@
     const HIT_COOLDOWN = 150;
     
     // ===== ELEMENTS =====
-    let scene, renderer, ball, cpuPaddle, playerPaddle;
+    let scene, renderer, ball, cpuPaddle, playerPaddle, gripDebug;
     
     // ===== INIT =====
     function init() {
@@ -101,6 +104,7 @@
       ball = document.getElementById('ball');
       cpuPaddle = document.getElementById('cpu-paddle');
       playerPaddle = document.getElementById('player-paddle');
+      gripDebug = document.getElementById('grip-debug');
       renderer = scene.renderer;
       
       scene.addEventListener('enter-vr', onEnterVR);
@@ -336,8 +340,8 @@
               const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
               if (pose) {
                 const p = pose.transform.position;
+                const q = pose.transform.orientation;
                 
-                // EXACT same as test - no offset, no rotation adjustment
                 lastControllerPos.copy(controllerPos);
                 controllerPos.set(p.x, p.y, p.z);
                 
@@ -346,10 +350,16 @@
                   controllerVel.subVectors(controllerPos, lastControllerPos).divideScalar(dt);
                 }
                 
-                // Update paddle - SAME position as controller, NO rotation changes
+                // EXACT same as working test:
+                // Position AND rotation directly from controller
                 if (playerPaddle?.object3D) {
                   playerPaddle.object3D.position.set(p.x, p.y, p.z);
-                  // Keep paddle upright - ignore controller rotation
+                  playerPaddle.object3D.quaternion.set(q.x, q.y, q.z, q.w);
+                }
+                
+                // Debug sphere at exact grip position
+                if (gripDebug?.object3D) {
+                  gripDebug.object3D.position.set(p.x, p.y, p.z);
                 }
               }
             } catch(e) {}
