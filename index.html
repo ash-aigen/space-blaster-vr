@@ -2,67 +2,94 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>🏓 VR Controller Test</title>
+  <title>🏓 VR Ping Pong</title>
   <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
   <style>
-    #debug { position:fixed; top:10px; left:10px; color:#0f0; font:12px monospace; background:rgba(0,0,0,0.8); padding:10px; z-index:9999; }
+    #hud { position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; font:bold 28px Arial; background:rgba(0,0,0,0.7); padding:12px 30px; border-radius:10px; z-index:999; }
   </style>
 </head>
 <body>
-  <div id="debug">Loading...</div>
+  <div id="hud">0 — 0</div>
 
   <a-scene webxr="requiredFeatures: local-floor">
     <a-sky color="#1a1a2e"></a-sky>
-    <a-plane rotation="-90 0 0" width="10" height="10" color="#16213e"></a-plane>
-    <a-light type="ambient" intensity="0.6"></a-light>
-    <a-light type="directional" intensity="0.5" position="1 3 2"></a-light>
+    <a-plane rotation="-90 0 0" width="20" height="20" color="#16213e"></a-plane>
+    <a-light type="ambient" intensity="0.5"></a-light>
+    <a-light type="directional" intensity="0.7" position="2 5 3"></a-light>
 
-    <!-- Reference: A box at origin -->
-    <a-box position="0 0.5 -1" width="0.2" height="0.2" depth="0.2" color="#888"></a-box>
-    <a-text value="Origin (0,0.5,-1)" position="0 0.9 -1" align="center" color="#fff" width="2"></a-text>
+    <!-- Table -->
+    <a-entity id="table" position="0 0.76 -1.5">
+      <a-box width="1.525" height="0.03" depth="2.74" color="#1b5e20"></a-box>
+      <!-- Center line -->
+      <a-box position="0 0.016 0" width="0.02" depth="2.74" height="0.003" color="#fff"></a-box>
+      <!-- End lines -->
+      <a-box position="0 0.016 1.37" width="1.525" depth="0.02" height="0.003" color="#fff"></a-box>
+      <a-box position="0 0.016 -1.37" width="1.525" depth="0.02" height="0.003" color="#fff"></a-box>
+      <!-- Net -->
+      <a-box position="0 0.08 0" width="1.6" height="0.15" depth="0.02" color="#333" opacity="0.8"></a-box>
+      <!-- Legs -->
+      <a-box position="0.7 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="-0.7 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="0.7 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="-0.7 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+    </a-entity>
 
-    <!-- Ball - will drop from controller on trigger -->
-    <a-sphere id="ball" radius="0.05" color="#ff9800" position="0 2 -1">
-      <a-light type="point" color="#ff9800" intensity="0.3" distance="1"></a-light>
+    <!-- Ball -->
+    <a-sphere id="ball" radius="0.02" color="#ff9800" position="0 1.2 -0.3">
+      <a-light type="point" color="#ff9800" intensity="0.3" distance="0.5"></a-light>
     </a-sphere>
 
-    <!-- GREEN = Raw controller position (gripSpace) -->
-    <a-sphere id="grip-marker" radius="0.03" color="#00ff00" position="0 1 0"></a-sphere>
-    
-    <!-- RED = Paddle (should match green) -->
-    <a-box id="paddle" width="0.12" height="0.12" depth="0.02" color="#c62828" position="0 1 0"></a-box>
+    <!-- CPU Paddle -->
+    <a-entity id="cpu-paddle" position="0 0.95 -2.8">
+      <a-box width="0.15" height="0.15" depth="0.015" color="#1565c0"></a-box>
+      <a-cylinder radius="0.012" height="0.1" color="#8B4513" position="0 -0.12 0"></a-cylinder>
+    </a-entity>
 
-    <!-- Debug text in VR -->
-    <a-text id="vr-debug" value="Enter VR..." position="0 1.8 -1" align="center" color="#0f0" width="3"></a-text>
-    <a-text id="vr-instructions" value="TRIGGER = drop ball\nGRIP = reset" position="0 1.5 -1" align="center" color="#4fc3f7" width="2.5"></a-text>
+    <!-- Player Paddle -->
+    <a-entity id="player-paddle" position="0 1 0">
+      <a-box width="0.15" height="0.15" depth="0.015" color="#c62828"></a-box>
+      <a-cylinder radius="0.012" height="0.1" color="#8B4513" position="0 -0.12 0"></a-cylinder>
+    </a-entity>
 
-    <!-- Camera -->
-    <a-entity position="0 0 0">
+    <!-- VR UI -->
+    <a-text id="vr-score" value="0 — 0" position="0 2.2 -1.5" align="center" color="#fff" width="6"></a-text>
+    <a-text id="vr-msg" value="Press any button to serve!" position="0 1.9 -1.5" align="center" color="#4fc3f7" width="3"></a-text>
+
+    <!-- Player camera -->
+    <a-entity position="0 0 1">
       <a-camera></a-camera>
     </a-entity>
   </a-scene>
 
   <script>
-    const debugEl = document.getElementById('debug');
-    const vrDebugEl = document.getElementById('vr-debug');
-    
-    function log(msg) {
-      debugEl.textContent = msg;
-      if (vrDebugEl) vrDebugEl.setAttribute('value', msg);
-      console.log(msg);
-    }
-    
-    // State
+    // ===== STATE =====
+    let myScore = 0, cpuScore = 0;
+    let ballVel = { x: 0, y: 0, z: 0 };
+    let playing = false;
+    let lastHit = '';
+    let lastHitTime = 0;
     let inVR = false;
-    let xrSession = null;
-    let xrRefSpace = null;
-    let rightController = null;
-    let ballDropped = false;
-    let ballVelY = 0;
+    let xrSession = null, xrRefSpace = null, rightController = null;
+    let controllerPos = new THREE.Vector3(0, 1, 0.5);
+    let lastControllerPos = new THREE.Vector3(0, 1, 0.5);
+    let controllerVel = new THREE.Vector3();
+    let btnWasPressed = false;
     
-    // Elements
-    let scene, renderer, gripMarker, paddle, ball;
+    // ===== CONSTANTS =====
+    const GRAVITY = -9.81;
+    const TABLE_Y = 0.775;
+    const TABLE_Z = -1.5;
+    const TABLE_HALF_W = 0.76;
+    const TABLE_MIN_Z = -2.87;
+    const TABLE_MAX_Z = -0.13;
+    const NET_HEIGHT = 0.15;
+    const HIT_RADIUS = 0.15;
+    const HIT_COOLDOWN = 150;
     
+    // ===== ELEMENTS =====
+    let scene, renderer, ball, cpuPaddle, playerPaddle;
+    
+    // ===== INIT =====
     function init() {
       scene = document.querySelector('a-scene');
       if (!scene?.hasLoaded) {
@@ -71,175 +98,274 @@
         return;
       }
       
-      gripMarker = document.getElementById('grip-marker');
-      paddle = document.getElementById('paddle');
       ball = document.getElementById('ball');
+      cpuPaddle = document.getElementById('cpu-paddle');
+      playerPaddle = document.getElementById('player-paddle');
       renderer = scene.renderer;
       
       scene.addEventListener('enter-vr', onEnterVR);
-      scene.addEventListener('exit-vr', () => { inVR = false; xrSession = null; });
+      scene.addEventListener('exit-vr', () => { inVR = false; });
       
-      log('Ready! Enter VR');
+      // Desktop controls
+      document.addEventListener('click', serve);
+      document.addEventListener('mousemove', e => {
+        if (inVR || !playerPaddle) return;
+        const x = (e.clientX / window.innerWidth - 0.5) * 1.4;
+        const y = 0.7 + (1 - e.clientY / window.innerHeight) * 0.5;
+        playerPaddle.object3D.position.set(x, y, 0.1);
+        controllerPos.set(x, y, 0.1);
+      });
+      
+      // Start game loop
+      scene.setAttribute('game-loop', '');
     }
     
+    // ===== VR SETUP =====
     function onEnterVR() {
       inVR = true;
-      log('Entered VR...');
-      
       xrSession = renderer.xr?.getSession?.();
-      if (!xrSession) { log('No XR session!'); return; }
+      if (!xrSession) return;
       
       xrSession.requestReferenceSpace('local-floor')
-        .then(space => { xrRefSpace = space; log('Got refspace'); })
+        .then(s => { xrRefSpace = s; })
         .catch(() => xrSession.requestReferenceSpace('local').then(s => { xrRefSpace = s; }));
       
-      // Find controller
       function findController() {
         for (const src of xrSession.inputSources) {
           if (src.handedness === 'right' && src.gripSpace) {
             rightController = src;
-            log('Controller found!');
-            return;
+            break;
           }
         }
-        log(`Controllers: ${xrSession.inputSources.length}, waiting for right...`);
       }
-      
       findController();
       xrSession.addEventListener('inputsourceschange', findController);
-      
-      // TRIGGER = drop ball
-      xrSession.addEventListener('selectstart', (e) => {
-        log(`SELECT from ${e.inputSource?.handedness || 'unknown'}`);
-        dropBall();
-      });
-      xrSession.addEventListener('select', (e) => {
-        log(`SELECT-end from ${e.inputSource?.handedness || 'unknown'}`);
-      });
-      
-      // GRIP = also drop ball (backup)
-      xrSession.addEventListener('squeezestart', (e) => {
-        log(`SQUEEZE from ${e.inputSource?.handedness || 'unknown'}`);
-        dropBall();
-      });
-      
-      // A/B buttons via gamepad polling
-      log('Listening for buttons...');
     }
     
-    function dropBall() {
-      if (!ball || !rightController) return;
+    // ===== SERVE =====
+    function serve() {
+      if (playing) return;
       
-      // Get current controller position
-      const frame = renderer.xr?.getFrame?.();
-      if (!frame || !xrRefSpace) return;
+      playing = true;
+      lastHit = 'player';
+      lastHitTime = performance.now();
       
-      const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
-      if (!pose) return;
+      // Ball starts above paddle
+      const pos = controllerPos.clone();
+      ball.object3D.position.set(pos.x, pos.y + 0.15, pos.z - 0.1);
       
-      const p = pose.transform.position;
-      ball.object3D.position.set(p.x, p.y, p.z);
-      ballDropped = true;
-      ballVelY = 0;
-      log(`Ball dropped at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
+      // Serve towards opponent
+      ballVel = {
+        x: (Math.random() - 0.5) * 1,
+        y: 1.5,
+        z: -5
+      };
+      
+      setMessage('');
+    }
+    
+    // ===== BALL PHYSICS =====
+    function updateBall(dt) {
+      if (!playing || !ball) return;
+      
+      const pos = ball.object3D.position;
+      
+      // Gravity
+      ballVel.y += GRAVITY * dt;
+      
+      // Move
+      pos.x += ballVel.x * dt;
+      pos.y += ballVel.y * dt;
+      pos.z += ballVel.z * dt;
+      
+      // Table bounce
+      if (pos.y < TABLE_Y + 0.02 && 
+          pos.z > TABLE_MIN_Z && pos.z < TABLE_MAX_Z && 
+          Math.abs(pos.x) < TABLE_HALF_W) {
+        pos.y = TABLE_Y + 0.02;
+        ballVel.y = Math.abs(ballVel.y) * 0.8;
+      }
+      
+      // Net collision
+      if (Math.abs(pos.z - TABLE_Z) < 0.03 && pos.y < TABLE_Y + NET_HEIGHT) {
+        ballVel.z *= -0.5;
+        pos.z = TABLE_Z + (ballVel.z > 0 ? 0.04 : -0.04);
+      }
+      
+      // Out of bounds
+      if (pos.y < 0.2 || Math.abs(pos.x) > 2 || pos.z > 2 || pos.z < -4) {
+        score(pos.z > TABLE_Z ? 'cpu' : 'player');
+      }
+    }
+    
+    // ===== AI =====
+    function updateAI(dt) {
+      if (!cpuPaddle || !ball) return;
+      
+      const bp = ball.object3D.position;
+      const cp = cpuPaddle.object3D.position;
+      
+      // Track ball when coming towards AI
+      if (ballVel.z < -1) {
+        const targetX = Math.max(-0.6, Math.min(0.6, bp.x));
+        cp.x += (targetX - cp.x) * 5 * dt;
+        
+        // Adjust height
+        const targetY = Math.max(0.85, Math.min(1.1, bp.y));
+        cp.y += (targetY - cp.y) * 4 * dt;
+      } else {
+        // Return to center
+        cp.x += (0 - cp.x) * 3 * dt;
+        cp.y += (0.95 - cp.y) * 3 * dt;
+      }
+    }
+    
+    // ===== COLLISION =====
+    function checkCollisions(now) {
+      if (!playing || !ball) return;
+      if (now - lastHitTime < HIT_COOLDOWN) return;
+      
+      const bp = ball.object3D.position;
+      
+      // Player paddle
+      if (lastHit !== 'player') {
+        const dist = bp.distanceTo(controllerPos);
+        if (dist < HIT_RADIUS) {
+          hitBall('player');
+        }
+      }
+      
+      // CPU paddle
+      if (lastHit !== 'cpu' && cpuPaddle) {
+        const cp = cpuPaddle.object3D.position;
+        const dist = Math.sqrt(
+          Math.pow(bp.x - cp.x, 2) + 
+          Math.pow(bp.y - cp.y, 2) + 
+          Math.pow(bp.z - cp.z, 2)
+        );
+        if (dist < HIT_RADIUS) {
+          hitBall('cpu');
+        }
+      }
+    }
+    
+    function hitBall(who) {
+      lastHit = who;
+      lastHitTime = performance.now();
+      
+      const dir = who === 'player' ? -1 : 1;
+      let speed = 5;
+      
+      if (who === 'player') {
+        // Add paddle velocity for more powerful shots
+        speed += Math.min(3, controllerVel.length() * 0.3);
+      }
+      
+      ballVel = {
+        x: (Math.random() - 0.5) * 2 + (who === 'player' ? controllerVel.x * 0.2 : 0),
+        y: 1 + Math.random() * 0.5,
+        z: dir * speed
+      };
+      
+      // Flash color
+      ball.setAttribute('color', who === 'player' ? '#4caf50' : '#f44336');
+      setTimeout(() => ball.setAttribute('color', '#ff9800'), 100);
+    }
+    
+    // ===== SCORING =====
+    function score(winner) {
+      playing = false;
+      
+      if (winner === 'player') myScore++;
+      else cpuScore++;
+      
+      updateScoreDisplay();
+      resetBall();
+      
+      if (myScore >= 11 || cpuScore >= 11) {
+        setMessage(myScore > cpuScore ? '🏆 YOU WIN!' : '😢 CPU WINS');
+        setTimeout(() => {
+          myScore = cpuScore = 0;
+          updateScoreDisplay();
+          setMessage('Press to serve!');
+        }, 3000);
+      } else {
+        setMessage('Press to serve!');
+      }
     }
     
     function resetBall() {
-      if (!ball) return;
-      ball.object3D.position.set(0, 2, -1);
-      ballDropped = false;
-      ballVelY = 0;
-      log('Ball reset');
+      ball.object3D.position.set(0, 1.2, -0.3);
+      ballVel = { x: 0, y: 0, z: 0 };
+      lastHit = '';
     }
     
-    // Tick - update controller position and ball physics
-    AFRAME.registerComponent('game-tick', {
+    function updateScoreDisplay() {
+      const txt = `${myScore} — ${cpuScore}`;
+      document.getElementById('hud').textContent = txt;
+      document.getElementById('vr-score')?.setAttribute('value', txt);
+    }
+    
+    function setMessage(msg) {
+      document.getElementById('vr-msg')?.setAttribute('value', msg);
+    }
+    
+    // ===== GAME LOOP =====
+    AFRAME.registerComponent('game-loop', {
       tick: function(time, delta) {
         const dt = Math.min(delta / 1000, 0.05);
+        const now = performance.now();
         
-        // Ball gravity
-        if (ballDropped && ball) {
-          ballVelY -= 9.81 * dt;
-          ball.object3D.position.y += ballVelY * dt;
-          
-          // Floor bounce
-          if (ball.object3D.position.y < 0.05) {
-            ball.object3D.position.y = 0.05;
-            ballVelY = -ballVelY * 0.6;
-            if (Math.abs(ballVelY) < 0.3) {
-              ballVelY = 0;
-              ballDropped = false;
-            }
-          }
-        }
-        
-        // Check gamepad buttons (A/B etc)
-        if (rightController?.gamepad) {
-          const gp = rightController.gamepad;
-          // Button 0 = trigger, 1 = grip, 4 = A, 5 = B
-          for (let i = 0; i < gp.buttons.length; i++) {
-            if (gp.buttons[i].pressed) {
-              log(`Gamepad btn ${i} pressed!`);
-              if (!window._btnPressed) {
-                window._btnPressed = true;
-                dropBall();
+        // Update controller position (VR)
+        if (inVR && xrSession && xrRefSpace && rightController) {
+          const frame = renderer.xr?.getFrame?.();
+          if (frame) {
+            try {
+              const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
+              if (pose) {
+                const p = pose.transform.position;
+                const q = pose.transform.orientation;
+                
+                lastControllerPos.copy(controllerPos);
+                controllerPos.set(p.x, p.y, p.z);
+                
+                // Calculate velocity
+                if (dt > 0.001) {
+                  controllerVel.subVectors(controllerPos, lastControllerPos).divideScalar(dt);
+                }
+                
+                // Update paddle visual
+                if (playerPaddle?.object3D) {
+                  playerPaddle.object3D.position.copy(controllerPos);
+                  playerPaddle.object3D.quaternion.set(q.x, q.y, q.z, q.w);
+                }
               }
-            }
+            } catch(e) {}
           }
-          if (!gp.buttons.some(b => b.pressed)) {
-            window._btnPressed = false;
+          
+          // Check gamepad buttons for serve
+          if (rightController.gamepad && !playing) {
+            const pressed = rightController.gamepad.buttons.some(b => b.pressed);
+            if (pressed && !btnWasPressed) {
+              serve();
+            }
+            btnWasPressed = pressed;
           }
         }
         
-        // Controller tracking
-        if (!inVR || !xrSession || !xrRefSpace || !rightController) return;
-        
-        const frame = renderer.xr?.getFrame?.();
-        if (!frame) return;
-        
-        try {
-          const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
-          if (pose) {
-            const p = pose.transform.position;
-            const q = pose.transform.orientation;
-            
-            // Update grip marker (green sphere)
-            if (gripMarker?.object3D) {
-              gripMarker.object3D.position.set(p.x, p.y, p.z);
-            }
-            
-            // Update paddle (red box) - SAME POSITION, no offset
-            if (paddle?.object3D) {
-              paddle.object3D.position.set(p.x, p.y, p.z);
-              paddle.object3D.quaternion.set(q.x, q.y, q.z, q.w);
-            }
-            
-            // Show position
-            log(`x:${p.x.toFixed(2)} y:${p.y.toFixed(2)} z:${p.z.toFixed(2)}`);
-          }
-        } catch (e) {}
+        // Game updates
+        updateBall(dt);
+        updateAI(dt);
+        checkCollisions(now);
       }
     });
     
-    // Desktop fallback
-    document.addEventListener('mousemove', e => {
-      if (inVR) return;
-      const x = (e.clientX / window.innerWidth - 0.5) * 2;
-      const y = 0.5 + (1 - e.clientY / window.innerHeight) * 1.5;
-      if (gripMarker?.object3D) gripMarker.object3D.position.set(x, y, -0.5);
-      if (paddle?.object3D) paddle.object3D.position.set(x, y, -0.5);
-    });
-    
-    document.addEventListener('click', () => { if (!inVR) dropBall(); });
-    
-    // Start
-    document.addEventListener('DOMContentLoaded', () => {
+    // ===== START =====
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
       init();
-      setTimeout(() => {
-        const s = document.querySelector('a-scene');
-        if (s) s.setAttribute('game-tick', '');
-      }, 500);
-    });
+    }
   </script>
 </body>
 </html>
