@@ -591,7 +591,14 @@
       if (inVR) {
         if (!vrPaddle || !vrPaddle.object3D) return null;
         const pos = new THREE.Vector3();
+        // KRIITTINEN: Päivitä world matrix ennen position hakua
+        vrPaddle.object3D.updateMatrixWorld(true);
         vrPaddle.object3D.getWorldPosition(pos);
+        
+        // Debug: logita VR-mailan sijainti
+        if (debugMode && playing) {
+          log(`VR paddle: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`);
+        }
         return pos;
       } else {
         if (!desktopPaddle || !desktopPaddle.object3D) return null;
@@ -621,8 +628,8 @@
     }
     
     // ============ COLLISION DETECTION ============
-    const HIT_RADIUS = 0.12;
-    const HIT_RADIUS_SQ = HIT_RADIUS * HIT_RADIUS;
+    const HIT_RADIUS_DESKTOP = 0.12;
+    const HIT_RADIUS_VR = 0.18;  // Isompi säde VR:ssä - maila on fyysisesti isompi
     const HIT_COOLDOWN = 150;
     
     function checkCollisions(timestamp) {
@@ -633,12 +640,22 @@
       
       if (now - lastHitTime < HIT_COOLDOWN) return;
       
+      // Valitse säde moodin mukaan
+      const hitRadius = inVR ? HIT_RADIUS_VR : HIT_RADIUS_DESKTOP;
+      const hitRadiusSq = hitRadius * hitRadius;
+      
       // Player paddle
       const pp = smoothedPaddlePos || getPaddleWorldPos();
       if (pp && lastHit !== 'player') {
         const distSq = Math.pow(bp.x - pp.x, 2) + Math.pow(bp.y - pp.y, 2) + Math.pow(bp.z - pp.z, 2);
+        const dist = Math.sqrt(distSq);
         
-        if (distSq < HIT_RADIUS_SQ) {
+        // Debug: näytä etäisyys palloon
+        if (debugMode && dist < 0.5) {
+          log(`Ball-paddle dist: ${dist.toFixed(3)} (hit at <${hitRadius.toFixed(2)})`);
+        }
+        
+        if (distSq < hitRadiusSq) {
           hitBall('player', pp, timestamp);
         }
       }
@@ -648,7 +665,7 @@
         const cp = cpuPaddle.object3D.position;
         const distSq = Math.pow(bp.x - cp.x, 2) + Math.pow(bp.y - cp.y, 2) + Math.pow(bp.z - cp.z, 2);
         
-        if (distSq < HIT_RADIUS_SQ) {
+        if (distSq < hitRadiusSq) {
           hitBall('cpu', cp, timestamp);
         }
       }
@@ -664,8 +681,9 @@
       const bp = ball.object3D.position;
       const dir = who === 'player' ? -1 : 1;
       
-      const offsetX = (bp.x - paddlePos.x) / HIT_RADIUS;
-      const offsetY = (bp.y - paddlePos.y) / HIT_RADIUS;
+      const hitRadius = inVR ? HIT_RADIUS_VR : HIT_RADIUS_DESKTOP;
+      const offsetX = (bp.x - paddlePos.x) / hitRadius;
+      const offsetY = (bp.y - paddlePos.y) / hitRadius;
       
       let speed = 4.5;
       let hitSpin = { x: 0, y: 0 };
