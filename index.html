@@ -198,25 +198,32 @@
       }
     }
     
-    // ===== AI =====
+    // ===== AI (HARD) =====
     function updateAI(dt) {
       if (!cpuPaddle || !ball) return;
       
       const bp = ball.object3D.position;
       const cp = cpuPaddle.object3D.position;
       
-      // Track ball when coming towards AI
-      if (ballVel.z < -1) {
-        const targetX = Math.max(-0.6, Math.min(0.6, bp.x));
-        cp.x += (targetX - cp.x) * 5 * dt;
+      // ALWAYS track the ball aggressively
+      if (ballVel.z < 0) {
+        // Predict where ball will be at CPU's z position
+        const timeToReach = (cp.z - bp.z) / ballVel.z;
+        const predictX = bp.x + ballVel.x * timeToReach;
+        const predictY = bp.y + ballVel.y * timeToReach + 0.5 * GRAVITY * timeToReach * timeToReach;
         
-        // Adjust height
-        const targetY = Math.max(0.85, Math.min(1.1, bp.y));
-        cp.y += (targetY - cp.y) * 4 * dt;
+        // Move FAST to predicted position
+        const targetX = Math.max(-0.65, Math.min(0.65, predictX));
+        const targetY = Math.max(0.82, Math.min(1.15, predictY > TABLE_Y ? predictY : TABLE_Y + 0.15));
+        
+        // Very fast tracking
+        cp.x += (targetX - cp.x) * 12 * dt;
+        cp.y += (targetY - cp.y) * 10 * dt;
       } else {
-        // Return to center
-        cp.x += (0 - cp.x) * 3 * dt;
-        cp.y += (0.95 - cp.y) * 3 * dt;
+        // Ball going away - return to ready position but stay alert
+        const targetX = bp.x * 0.3; // Slightly anticipate
+        cp.x += (targetX - cp.x) * 8 * dt;
+        cp.y += (0.92 - cp.y) * 6 * dt;
       }
     }
     
@@ -254,16 +261,21 @@
       lastHitTime = performance.now();
       
       const dir = who === 'player' ? -1 : 1;
-      let speed = 5;
+      let speed = who === 'player' ? 5 : 6.5; // CPU hits harder!
       
       if (who === 'player') {
         // Add paddle velocity for more powerful shots
         speed += Math.min(3, controllerVel.length() * 0.3);
       }
       
+      // CPU aims at corners, player is more random
+      const xSpread = who === 'cpu' ? 
+        (Math.random() > 0.5 ? 0.4 : -0.4) + (Math.random() - 0.5) * 0.3 : // CPU aims corners
+        (Math.random() - 0.5) * 2 + controllerVel.x * 0.2; // Player based on swing
+      
       ballVel = {
-        x: (Math.random() - 0.5) * 2 + (who === 'player' ? controllerVel.x * 0.2 : 0),
-        y: 1 + Math.random() * 0.5,
+        x: xSpread,
+        y: 1.2 + Math.random() * 0.4,
         z: dir * speed
       };
       
@@ -324,38 +336,20 @@
               const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
               if (pose) {
                 const p = pose.transform.position;
-                const q = pose.transform.orientation;
                 
-                // Controller quaternion
-                const quat = new THREE.Quaternion(q.x, q.y, q.z, q.w);
-                
-                // Offset: paddle is in front of grip, pointing forward
-                // Adjust these values to feel right!
-                const offset = new THREE.Vector3(0, 0, -0.12); // 12cm in front
-                offset.applyQuaternion(quat);
-                
-                const paddlePos = new THREE.Vector3(p.x, p.y, p.z).add(offset);
-                
+                // EXACT same as test - no offset, no rotation adjustment
                 lastControllerPos.copy(controllerPos);
-                controllerPos.copy(paddlePos);
+                controllerPos.set(p.x, p.y, p.z);
                 
                 // Calculate velocity
                 if (dt > 0.001) {
                   controllerVel.subVectors(controllerPos, lastControllerPos).divideScalar(dt);
                 }
                 
-                // Update paddle visual
+                // Update paddle - SAME position as controller, NO rotation changes
                 if (playerPaddle?.object3D) {
-                  playerPaddle.object3D.position.copy(paddlePos);
-                  
-                  // Rotate paddle to be flat (like holding a real paddle)
-                  // Start with controller rotation, then adjust
-                  playerPaddle.object3D.quaternion.copy(quat);
-                  
-                  // Additional rotation to make paddle face forward
-                  const adjustRot = new THREE.Quaternion();
-                  adjustRot.setFromEuler(new THREE.Euler(-Math.PI/4, 0, 0)); // Tilt 45° forward
-                  playerPaddle.object3D.quaternion.multiply(adjustRot);
+                  playerPaddle.object3D.position.set(p.x, p.y, p.z);
+                  // Keep paddle upright - ignore controller rotation
                 }
               }
             } catch(e) {}
