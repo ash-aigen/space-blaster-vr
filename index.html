@@ -13,7 +13,7 @@
 </head>
 <body>
   <div id="hud">0 — 0</div>
-  <div id="info">🎮 TRIGGER/A/B = serve | GRIP = debug</div>
+  <div id="info">🎮 TRIGGER/A/B = serve | GRIP = reset | THUMBSTICK = debug</div>
   <div id="debug">Debug: waiting for init...</div>
 
   <a-scene webxr="requiredFeatures: local-floor; optionalFeatures: hand-tracking">
@@ -196,7 +196,10 @@
         rhand.addEventListener(evt, (e) => {
           log(`Button: ${evt}`);
           if (evt === 'gripdown') {
-            // Grip = toggle debug visibility
+            // Grip = RESET game (clears "already playing" state)
+            resetGame();
+          } else if (evt === 'thumbstickdown') {
+            // Thumbstick = toggle debug
             const dbg = document.getElementById('debug');
             dbg.style.display = dbg.style.display === 'none' ? 'block' : 'none';
           } else if (evt.includes('down')) {
@@ -215,8 +218,9 @@
       // Desktop controls
       document.addEventListener('keydown', e => {
         if (e.code === 'Space') serve();
+        if (e.code === 'KeyR') resetGame(); // R = reset
       });
-      document.addEventListener('click', () => { if (!inVR) serve(); });
+      // NO automatic click-to-serve - it interferes with VR
       
       document.addEventListener('mousemove', e => {
         if (!inVR && desktopPaddle && desktopPaddle.object3D) {
@@ -522,6 +526,16 @@
       ball.object3D.position.set(0, 1.3, -0.3);
       ballVel = { x: 0, y: 0, z: 0 };
       lastHit = '';
+    }
+    
+    function resetGame() {
+      playing = false;
+      myScore = 0;
+      cpuScore = 0;
+      resetBall();
+      updateScore();
+      setMessage('TRIGGER = Serve');
+      log('GAME RESET');
     }
     
     // ============ UI ============
