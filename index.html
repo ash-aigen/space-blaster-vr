@@ -40,8 +40,8 @@
 <body>
   <div id="score-display">YOU: 0 — CPU: 0</div>
   <div id="instructions">
-    🎮 <strong>Quest Controllers:</strong> Move paddle with right hand<br>
-    🖱️ <strong>Desktop:</strong> Move mouse to control paddle<br>
+    🎮 <strong>Quest:</strong> Move right controller to hit<br>
+    🖱️ <strong>Desktop:</strong> Move mouse<br>
     ⏎ Press <strong>TRIGGER</strong> or <strong>SPACE</strong> to serve
   </div>
 
@@ -50,25 +50,25 @@
     <a-sky color="#1a1a2e"></a-sky>
     <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#16213e"></a-plane>
     
-    <!-- Ambient lighting -->
+    <!-- Lighting -->
     <a-light type="ambient" color="#404040" intensity="0.5"></a-light>
-    <a-light type="directional" color="#ffffff" intensity="0.8" position="0 10 5" castShadow="true"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="0.8" position="0 10 5"></a-light>
     <a-light type="point" color="#4fc3f7" intensity="0.3" position="0 3 0"></a-light>
 
     <!-- Ping Pong Table -->
     <a-entity id="table" position="0 0.76 -1.5">
-      <!-- Table top (green) -->
-      <a-box position="0 0 0" width="1.525" height="0.03" depth="2.74" color="#1b5e20" shadow></a-box>
+      <!-- Table top -->
+      <a-box position="0 0 0" width="1.525" height="0.03" depth="2.74" color="#1b5e20"></a-box>
       <!-- White lines -->
-      <a-box position="0 0.016 0" width="0.02" height="0.001" depth="2.74" color="#ffffff"></a-box>
-      <a-box position="0 0.016 0" width="1.525" height="0.001" depth="0.02" color="#ffffff"></a-box>
-      <a-box position="0.7525 0.016 0" width="0.02" height="0.001" depth="2.74" color="#ffffff"></a-box>
-      <a-box position="-0.7525 0.016 0" width="0.02" height="0.001" depth="2.74" color="#ffffff"></a-box>
-      <a-box position="0 0.016 1.36" width="1.525" height="0.001" depth="0.02" color="#ffffff"></a-box>
-      <a-box position="0 0.016 -1.36" width="1.525" height="0.001" depth="0.02" color="#ffffff"></a-box>
+      <a-box position="0 0.016 0" width="0.02" height="0.001" depth="2.74" color="#fff"></a-box>
+      <a-box position="0 0.016 0" width="1.525" height="0.001" depth="0.02" color="#fff"></a-box>
+      <a-box position="0.7525 0.016 0" width="0.02" height="0.001" depth="2.74" color="#fff"></a-box>
+      <a-box position="-0.7525 0.016 0" width="0.02" height="0.001" depth="2.74" color="#fff"></a-box>
+      <a-box position="0 0.016 1.36" width="1.525" height="0.001" depth="0.02" color="#fff"></a-box>
+      <a-box position="0 0.016 -1.36" width="1.525" height="0.001" depth="0.02" color="#fff"></a-box>
       <!-- Net -->
-      <a-box position="0 0.08 0" width="1.7" height="0.15" depth="0.02" color="#333333" opacity="0.7"></a-box>
-      <a-box position="0 0.155 0" width="1.7" height="0.01" depth="0.025" color="#ffffff"></a-box>
+      <a-box position="0 0.08 0" width="1.7" height="0.15" depth="0.015" color="#333" opacity="0.8"></a-box>
+      <a-box position="0 0.155 0" width="1.7" height="0.01" depth="0.02" color="#fff"></a-box>
       <!-- Table legs -->
       <a-box position="0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
       <a-box position="-0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
@@ -77,104 +77,118 @@
     </a-entity>
 
     <!-- Ball -->
-    <a-sphere id="ball" position="0 1.2 -0.5" radius="0.02" color="#ff9800" shadow>
-      <a-light type="point" color="#ff9800" intensity="0.2" distance="0.5"></a-light>
+    <a-sphere id="ball" position="0 1.2 -0.5" radius="0.02" color="#ff9800">
+      <a-light type="point" color="#ff9800" intensity="0.3" distance="0.5"></a-light>
     </a-sphere>
 
-    <!-- Player Paddle (right hand controller) -->
-    <a-entity id="player-paddle" position="0 1 0.3">
-      <!-- Paddle handle -->
-      <a-cylinder position="0 -0.06 0" radius="0.015" height="0.1" color="#8d6e63"></a-cylinder>
-      <!-- Paddle face -->
-      <a-box position="0 0.02 0" width="0.15" height="0.01" depth="0.17" color="#c62828"></a-box>
-      <a-box position="0 0.025 0" width="0.14" height="0.005" depth="0.16" color="#1a1a1a"></a-box>
+    <!-- Player Paddle (REAL ping pong paddle shape!) -->
+    <a-entity id="player-paddle" position="0 1 0.2">
+      <!-- Handle (wooden) -->
+      <a-cylinder position="0 -0.07 0" radius="0.012" height="0.10" color="#8B4513" rotation="0 0 0"></a-cylinder>
+      <!-- Paddle head (round!) - red rubber side facing opponent -->
+      <a-cylinder position="0 0.02 0" radius="0.08" height="0.012" color="#c62828" rotation="90 0 0"></a-cylinder>
+      <!-- Black rubber back side -->
+      <a-cylinder position="0 0.026 0" radius="0.075" height="0.004" color="#222" rotation="90 0 0"></a-cylinder>
+      <!-- Edge/rim -->
+      <a-torus position="0 0.02 0" radius="0.08" radius-tubular="0.005" color="#5D4037" rotation="90 0 0"></a-torus>
     </a-entity>
 
     <!-- CPU Paddle -->
     <a-entity id="cpu-paddle" position="0 1 -3.3">
-      <a-cylinder position="0 -0.06 0" radius="0.015" height="0.1" color="#8d6e63"></a-cylinder>
-      <a-box position="0 0.02 0" width="0.15" height="0.01" depth="0.17" color="#1565c0"></a-box>
-      <a-box position="0 0.025 0" width="0.14" height="0.005" depth="0.16" color="#1a1a1a"></a-box>
+      <a-cylinder position="0 -0.07 0" radius="0.012" height="0.10" color="#8B4513"></a-cylinder>
+      <a-cylinder position="0 0.02 0" radius="0.08" height="0.012" color="#1565c0" rotation="90 0 0"></a-cylinder>
+      <a-cylinder position="0 0.026 0" radius="0.075" height="0.004" color="#222" rotation="90 0 0"></a-cylinder>
+      <a-torus position="0 0.02 0" radius="0.08" radius-tubular="0.005" color="#5D4037" rotation="90 0 0"></a-torus>
     </a-entity>
 
     <!-- VR Score display -->
-    <a-text id="vr-score" value="YOU: 0 — CPU: 0" position="0 2.2 -1.5" align="center" color="#ffffff" width="4"></a-text>
+    <a-text id="vr-score" value="YOU: 0 — CPU: 0" position="0 2.2 -1.5" align="center" color="#fff" width="4"></a-text>
     <a-text id="vr-message" value="Press TRIGGER to serve" position="0 1.8 -1.5" align="center" color="#4fc3f7" width="3"></a-text>
 
-    <!-- Player Rig with Controllers -->
+    <!-- Player Rig -->
     <a-entity id="rig" position="0 0 1">
-      <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
-        <!-- Crosshair for desktop -->
-        <a-ring color="#fff" radius-inner="0.001" radius-outer="0.002" position="0 0 -0.5" opacity="0.5"></a-ring>
-      </a-camera>
+      <a-camera id="camera" position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-camera>
       
-      <!-- Right hand controller (paddle hand) -->
+      <!-- Right hand - paddle attached directly! -->
       <a-entity id="right-hand" 
-                hand-controls="hand: right; handModelStyle: lowPoly; color: #ffcccc"
-                laser-controls="hand: right"
-                raycaster="objects: .interactive; far: 5">
+                oculus-touch-controls="hand: right"
+                vive-controls="hand: right"
+                windows-motion-controls="hand: right">
       </a-entity>
       
-      <!-- Left hand controller -->
-      <a-entity id="left-hand" 
-                hand-controls="hand: left; handModelStyle: lowPoly; color: #ffcccc">
+      <!-- Left hand -->
+      <a-entity id="left-hand"
+                oculus-touch-controls="hand: left"
+                vive-controls="hand: left"
+                windows-motion-controls="hand: left">
       </a-entity>
     </a-entity>
-
-    <!-- Room boundaries (subtle) -->
-    <a-box position="3 1.5 -1.5" width="0.1" height="3" depth="8" color="#333" opacity="0.3"></a-box>
-    <a-box position="-3 1.5 -1.5" width="0.1" height="3" depth="8" color="#333" opacity="0.3"></a-box>
   </a-scene>
 
   <script>
     // Game state
     let playerScore = 0;
     let cpuScore = 0;
-    let ballVelocity = { x: 0, y: 0, z: 0 };
-    let gameState = 'waiting'; // waiting, playing, scored
-    let lastHit = 'none'; // player, cpu, none
+    let ballVel = { x: 0, y: 0, z: 0 };
+    let gameState = 'waiting';
+    let lastHit = 'none';
+    let isVR = false;
     
-    // Physics constants
+    // Constants
     const GRAVITY = -9.8;
-    const BOUNCE_DAMPING = 0.8;
-    const TABLE_HEIGHT = 0.76;
-    const TABLE_HALF_WIDTH = 0.7625;
-    const TABLE_HALF_DEPTH = 1.37;
+    const BOUNCE = 0.75;
+    const TABLE_Y = 0.76;
     const TABLE_Z = -1.5;
+    const PADDLE_RADIUS = 0.08;
     const BALL_RADIUS = 0.02;
-    const PADDLE_HALF_WIDTH = 0.075;
-    const PADDLE_HALF_DEPTH = 0.085;
     
     // Elements
-    let ball, playerPaddle, cpuPaddle, rightHand;
+    let ball, playerPaddle, cpuPaddle, rightHand, rig, scene;
     let lastTime = 0;
+    let prevPaddlePos = { x: 0, y: 1, z: 0.2 };
+    let paddleVel = { x: 0, y: 0, z: 0 };
     
-    // Initialize
-    document.querySelector('a-scene').addEventListener('loaded', function() {
-      ball = document.getElementById('ball');
-      playerPaddle = document.getElementById('player-paddle');
-      cpuPaddle = document.getElementById('cpu-paddle');
-      rightHand = document.getElementById('right-hand');
+    document.addEventListener('DOMContentLoaded', () => {
+      scene = document.querySelector('a-scene');
       
-      // Controller events
-      rightHand.addEventListener('triggerdown', serve);
-      
-      // Keyboard serve
-      document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') serve();
+      scene.addEventListener('loaded', () => {
+        ball = document.getElementById('ball');
+        playerPaddle = document.getElementById('player-paddle');
+        cpuPaddle = document.getElementById('cpu-paddle');
+        rightHand = document.getElementById('right-hand');
+        rig = document.getElementById('rig');
+        
+        // Detect VR
+        scene.addEventListener('enter-vr', () => { isVR = true; });
+        scene.addEventListener('exit-vr', () => { isVR = false; });
+        
+        // Controller trigger
+        rightHand.addEventListener('triggerdown', serve);
+        rightHand.addEventListener('abuttondown', serve);
+        
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') serve();
+        });
+        
+        // Mouse for desktop
+        document.addEventListener('mousemove', (e) => {
+          if (!isVR) {
+            const x = (e.clientX / window.innerWidth - 0.5) * 1.4;
+            const y = 0.85 + (1 - e.clientY / window.innerHeight) * 0.5;
+            playerPaddle.object3D.position.set(x, y, 0.2);
+          }
+        });
+        
+        // Click to serve on desktop
+        document.addEventListener('click', () => {
+          if (!isVR) serve();
+        });
+        
+        // Start loop
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
       });
-      
-      // Mouse control for desktop
-      document.addEventListener('mousemove', (e) => {
-        if (!document.pointerLockElement) {
-          const x = (e.clientX / window.innerWidth - 0.5) * 1.4;
-          const y = 0.9 + (1 - e.clientY / window.innerHeight) * 0.4;
-          playerPaddle.setAttribute('position', { x: x, y: y, z: 0.3 });
-        }
-      });
-      
-      // Start game loop
-      requestAnimationFrame(gameLoop);
     });
     
     function serve() {
@@ -183,160 +197,158 @@
       gameState = 'playing';
       lastHit = 'player';
       
-      // Position ball above paddle
-      const paddlePos = playerPaddle.getAttribute('position');
-      ball.setAttribute('position', {
-        x: paddlePos.x,
-        y: paddlePos.y + 0.3,
-        z: paddlePos.z - 0.1
-      });
+      const pp = playerPaddle.object3D.position;
+      ball.object3D.position.set(pp.x, pp.y + 0.2, pp.z - 0.1);
       
-      // Serve velocity (towards opponent)
-      ballVelocity = {
-        x: (Math.random() - 0.5) * 2,
-        y: 2,
-        z: -4
+      ballVel = {
+        x: (Math.random() - 0.5) * 1.5,
+        y: 3,
+        z: -5
       };
       
-      updateMessage('');
+      setMessage('');
     }
     
     function gameLoop(time) {
-      const delta = Math.min((time - lastTime) / 1000, 0.1);
+      const dt = Math.min((time - lastTime) / 1000, 0.05);
       lastTime = time;
       
+      if (isVR) {
+        updatePaddleVR();
+      }
+      
       if (gameState === 'playing') {
-        updateBall(delta);
-        updateCPU(delta);
-        updatePaddleFromController();
+        updateBall(dt);
+        updateCPU(dt);
         checkCollisions();
       }
       
       requestAnimationFrame(gameLoop);
     }
     
-    function updateBall(delta) {
+    function updatePaddleVR() {
+      // Get world position of right controller
+      const handObj = rightHand.object3D;
+      const worldPos = new THREE.Vector3();
+      handObj.getWorldPosition(worldPos);
+      
+      // Only update if we have valid tracking
+      if (worldPos.y > 0.1) {
+        // Calculate paddle velocity for hit power
+        const currPos = playerPaddle.object3D.position;
+        paddleVel.x = (worldPos.x - currPos.x) * 60;
+        paddleVel.y = (worldPos.y - currPos.y) * 60;
+        paddleVel.z = (worldPos.z - currPos.z) * 60;
+        
+        // Set paddle position
+        playerPaddle.object3D.position.copy(worldPos);
+        
+        // Set paddle rotation from controller
+        const worldQuat = new THREE.Quaternion();
+        handObj.getWorldQuaternion(worldQuat);
+        playerPaddle.object3D.quaternion.copy(worldQuat);
+        
+        // Rotate to correct paddle orientation
+        playerPaddle.object3D.rotateX(-Math.PI / 2);
+      }
+    }
+    
+    function updateBall(dt) {
       const pos = ball.object3D.position;
       
-      // Apply gravity
-      ballVelocity.y += GRAVITY * delta;
+      // Gravity
+      ballVel.y += GRAVITY * dt;
       
-      // Update position
-      pos.x += ballVelocity.x * delta;
-      pos.y += ballVelocity.y * delta;
-      pos.z += ballVelocity.z * delta;
+      // Move
+      pos.x += ballVel.x * dt;
+      pos.y += ballVel.y * dt;
+      pos.z += ballVel.z * dt;
       
       // Table bounce
-      const tableTop = TABLE_HEIGHT + 0.015 + BALL_RADIUS;
+      const tableTop = TABLE_Y + 0.015 + BALL_RADIUS;
       if (pos.y < tableTop && 
-          pos.z > TABLE_Z - TABLE_HALF_DEPTH && 
-          pos.z < TABLE_Z + TABLE_HALF_DEPTH &&
-          Math.abs(pos.x) < TABLE_HALF_WIDTH) {
+          pos.z > TABLE_Z - 1.37 && pos.z < TABLE_Z + 1.37 &&
+          Math.abs(pos.x) < 0.76) {
         pos.y = tableTop;
-        ballVelocity.y = -ballVelocity.y * BOUNCE_DAMPING;
-        
-        // Add spin effect
-        ballVelocity.x += (Math.random() - 0.5) * 0.5;
+        ballVel.y = Math.abs(ballVel.y) * BOUNCE;
       }
       
-      // Net collision
-      if (Math.abs(pos.z - TABLE_Z) < 0.05 && pos.y < TABLE_HEIGHT + 0.15) {
-        ballVelocity.z = -ballVelocity.z * 0.5;
-        pos.z = TABLE_Z + (pos.z > TABLE_Z ? 0.06 : -0.06);
+      // Net
+      if (Math.abs(pos.z - TABLE_Z) < 0.03 && pos.y < TABLE_Y + 0.15) {
+        ballVel.z *= -0.5;
+        pos.z = TABLE_Z + (ballVel.z > 0 ? 0.04 : -0.04);
       }
       
-      // Ball out of bounds
+      // Out of bounds
       if (pos.y < 0 || Math.abs(pos.x) > 3 || pos.z > 2 || pos.z < -5) {
         score(pos.z > TABLE_Z ? 'cpu' : 'player');
       }
     }
     
-    function updateCPU(delta) {
-      const ballPos = ball.object3D.position;
-      const cpuPos = cpuPaddle.object3D.position;
+    function updateCPU(dt) {
+      const bp = ball.object3D.position;
+      const cp = cpuPaddle.object3D.position;
       
-      // Only react when ball is coming towards CPU
-      if (ballVelocity.z < 0) {
-        // Predict where ball will be
-        const timeToReach = (cpuPos.z - ballPos.z) / -ballVelocity.z;
-        const predictedX = ballPos.x + ballVelocity.x * timeToReach * 0.7;
+      if (ballVel.z < 0) {
+        // Predict landing
+        const t = (cp.z - bp.z) / Math.max(0.1, -ballVel.z);
+        const targetX = bp.x + ballVel.x * t * 0.6;
+        const clampedX = Math.max(-0.6, Math.min(0.6, targetX));
         
-        // Move towards predicted position with some lag
-        const speed = 3;
-        const targetX = Math.max(-0.6, Math.min(0.6, predictedX));
-        cpuPos.x += (targetX - cpuPos.x) * speed * delta;
-        
-        // Slight vertical movement
-        const targetY = 0.95 + Math.sin(Date.now() / 500) * 0.05;
-        cpuPos.y += (targetY - cpuPos.y) * 2 * delta;
-      }
-    }
-    
-    function updatePaddleFromController() {
-      // Get controller position in world space
-      const controllerPos = rightHand.object3D.position;
-      const rigPos = document.getElementById('rig').object3D.position;
-      
-      // Only update if controller is being tracked (has moved from origin)
-      if (controllerPos.x !== 0 || controllerPos.y !== 0 || controllerPos.z !== 0) {
-        playerPaddle.object3D.position.set(
-          rigPos.x + controllerPos.x,
-          rigPos.y + controllerPos.y,
-          Math.min(0.5, rigPos.z + controllerPos.z)
-        );
-        
-        // Copy rotation too
-        playerPaddle.object3D.rotation.copy(rightHand.object3D.rotation);
+        // Move smoothly
+        cp.x += (clampedX - cp.x) * 4 * dt;
+        cp.y = 0.92 + Math.sin(Date.now() / 400) * 0.03;
       }
     }
     
     function checkCollisions() {
-      const ballPos = ball.object3D.position;
+      const bp = ball.object3D.position;
       
-      // Player paddle collision
-      const playerPos = playerPaddle.object3D.position;
-      if (checkPaddleCollision(ballPos, playerPos, 'player')) {
-        hitBall(playerPos, 'player');
+      // Player paddle
+      const pp = playerPaddle.object3D.position;
+      const distPlayer = Math.sqrt(
+        Math.pow(bp.x - pp.x, 2) + 
+        Math.pow(bp.y - pp.y, 2) + 
+        Math.pow(bp.z - pp.z, 2)
+      );
+      
+      if (distPlayer < PADDLE_RADIUS + BALL_RADIUS && lastHit !== 'player') {
+        hitBall(pp, 'player', paddleVel);
       }
       
-      // CPU paddle collision
-      const cpuPos = cpuPaddle.object3D.position;
-      if (checkPaddleCollision(ballPos, cpuPos, 'cpu')) {
-        hitBall(cpuPos, 'cpu');
+      // CPU paddle
+      const cp = cpuPaddle.object3D.position;
+      const distCPU = Math.sqrt(
+        Math.pow(bp.x - cp.x, 2) + 
+        Math.pow(bp.y - cp.y, 2) + 
+        Math.pow(bp.z - cp.z, 2)
+      );
+      
+      if (distCPU < PADDLE_RADIUS + BALL_RADIUS && lastHit !== 'cpu') {
+        hitBall(cp, 'cpu', { x: 0, y: 0, z: 3 });
       }
     }
     
-    function checkPaddleCollision(ballPos, paddlePos, who) {
-      const dx = Math.abs(ballPos.x - paddlePos.x);
-      const dy = Math.abs(ballPos.y - paddlePos.y);
-      const dz = Math.abs(ballPos.z - paddlePos.z);
-      
-      return dx < PADDLE_HALF_WIDTH + BALL_RADIUS &&
-             dy < 0.05 + BALL_RADIUS &&
-             dz < PADDLE_HALF_DEPTH + BALL_RADIUS &&
-             lastHit !== who;
-    }
-    
-    function hitBall(paddlePos, who) {
+    function hitBall(paddlePos, who, pVel) {
       lastHit = who;
+      const bp = ball.object3D.position;
       
-      const ballPos = ball.object3D.position;
+      // Direction based on who hit
+      const dir = who === 'player' ? -1 : 1;
       
-      // Calculate hit offset from paddle center
-      const offsetX = (ballPos.x - paddlePos.x) / PADDLE_HALF_WIDTH;
-      const offsetZ = (ballPos.z - paddlePos.z) / PADDLE_HALF_DEPTH;
+      // Base speed + paddle velocity influence
+      const speed = 5 + Math.abs(pVel.z) * 0.1;
       
-      // Set new velocity based on hit
-      const speed = 5 + Math.random() * 2;
-      const direction = who === 'player' ? -1 : 1;
+      // Offset affects angle
+      const offsetX = (bp.x - paddlePos.x) / PADDLE_RADIUS;
       
-      ballVelocity = {
-        x: offsetX * 3 + (Math.random() - 0.5),
-        y: 2 + Math.random(),
-        z: direction * speed
+      ballVel = {
+        x: offsetX * 3 + pVel.x * 0.2,
+        y: 2 + Math.abs(pVel.y) * 0.1,
+        z: dir * speed
       };
       
-      // Visual feedback
+      // Flash
       ball.setAttribute('color', who === 'player' ? '#4caf50' : '#f44336');
       setTimeout(() => ball.setAttribute('color', '#ff9800'), 100);
     }
@@ -344,43 +356,38 @@
     function score(winner) {
       gameState = 'waiting';
       
-      if (winner === 'player') {
-        playerScore++;
-      } else {
-        cpuScore++;
-      }
+      if (winner === 'player') playerScore++;
+      else cpuScore++;
       
       updateScore();
       resetBall();
       
-      // Check for game end
       if (playerScore >= 11 || cpuScore >= 11) {
-        const msg = playerScore > cpuScore ? '🏆 YOU WIN!' : '😢 CPU WINS';
-        updateMessage(msg);
+        setMessage(playerScore > cpuScore ? '🏆 YOU WIN!' : '😢 CPU WINS');
         setTimeout(() => {
           playerScore = 0;
           cpuScore = 0;
           updateScore();
-          updateMessage('Press TRIGGER to serve');
+          setMessage('Press TRIGGER to serve');
         }, 3000);
       } else {
-        updateMessage('Press TRIGGER to serve');
+        setMessage('Press TRIGGER to serve');
       }
     }
     
     function resetBall() {
-      ball.setAttribute('position', { x: 0, y: 1.2, z: -0.5 });
-      ballVelocity = { x: 0, y: 0, z: 0 };
+      ball.object3D.position.set(0, 1.2, -0.5);
+      ballVel = { x: 0, y: 0, z: 0 };
       lastHit = 'none';
     }
     
     function updateScore() {
-      const text = `YOU: ${playerScore} — CPU: ${cpuScore}`;
-      document.getElementById('score-display').textContent = text;
-      document.getElementById('vr-score').setAttribute('value', text);
+      const txt = `YOU: ${playerScore} — CPU: ${cpuScore}`;
+      document.getElementById('score-display').textContent = txt;
+      document.getElementById('vr-score').setAttribute('value', txt);
     }
     
-    function updateMessage(msg) {
+    function setMessage(msg) {
       document.getElementById('vr-message').setAttribute('value', msg);
     }
   </script>
