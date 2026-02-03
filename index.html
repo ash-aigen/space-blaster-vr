@@ -3,94 +3,68 @@
 <head>
   <meta charset="utf-8">
   <title>🏓 VR Ping Pong</title>
-  <meta name="description" content="VR Table Tennis for Oculus Quest">
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
-    #hud {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #fff;
-      font-family: Arial, sans-serif;
-      font-size: 24px;
-      z-index: 999;
-      background: rgba(0,0,0,0.6);
-      padding: 10px 30px;
-      border-radius: 10px;
-    }
-    #info {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #fff;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      z-index: 999;
-      background: rgba(0,0,0,0.7);
-      padding: 10px 20px;
-      border-radius: 8px;
-    }
+    #hud { position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; font:bold 24px Arial; background:rgba(0,0,0,0.6); padding:10px 25px; border-radius:10px; z-index:999; }
+    #info { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); color:#fff; font:14px Arial; background:rgba(0,0,0,0.7); padding:8px 15px; border-radius:8px; z-index:999; }
   </style>
 </head>
 <body>
-  <div id="hud">YOU: 0 — CPU: 0</div>
-  <div id="info">🎮 Right hand = paddle | TRIGGER = serve</div>
+  <div id="hud">0 — 0</div>
+  <div id="info">🎮 TRIGGER = serve | Right hand = paddle</div>
 
   <a-scene>
-    <!-- Sky & Floor -->
     <a-sky color="#1a1a2e"></a-sky>
     <a-plane rotation="-90 0 0" width="20" height="20" color="#16213e"></a-plane>
     
-    <!-- Lights -->
-    <a-light type="ambient" intensity="0.4"></a-light>
-    <a-light type="directional" intensity="0.7" position="2 8 4"></a-light>
+    <a-light type="ambient" intensity="0.5"></a-light>
+    <a-light type="directional" intensity="0.8" position="2 8 4"></a-light>
 
     <!-- Table -->
-    <a-entity id="table" position="0 0.76 -1.5">
+    <a-entity position="0 0.76 -1.5">
       <a-box width="1.525" height="0.03" depth="2.74" color="#1b5e20"></a-box>
-      <a-box position="0 0.016 0" width="0.02" depth="2.74" height="0.001" color="#fff"></a-box>
-      <a-box position="0 0.016 0" width="1.525" depth="0.02" height="0.001" color="#fff"></a-box>
-      <a-box position="0 0.08 0" width="1.7" height="0.15" depth="0.01" color="#333" opacity="0.8"></a-box>
-      <a-box position="0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
-      <a-box position="-0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
-      <a-box position="0.65 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
-      <a-box position="-0.65 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="0 0.016 0" width="0.02" depth="2.74" height="0.002" color="#fff"></a-box>
+      <a-box position="0 0.016 0" width="1.525" depth="0.02" height="0.002" color="#fff"></a-box>
+      <a-box position="0 0.08 0" width="1.7" height="0.152" depth="0.01" color="#444"></a-box>
+      <a-box position="0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#333"></a-box>
+      <a-box position="-0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#333"></a-box>
+      <a-box position="0.65 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#333"></a-box>
+      <a-box position="-0.65 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#333"></a-box>
     </a-entity>
 
-    <!-- Ball -->
-    <a-sphere id="ball" radius="0.02" color="#ff9800" position="0 1.5 -0.5"></a-sphere>
+    <!-- Ball - BIGGER for easier hit -->
+    <a-sphere id="ball" radius="0.025" color="#ff9800" position="0 1.3 -0.3">
+      <a-light type="point" color="#ff9800" intensity="0.5" distance="1"></a-light>
+    </a-sphere>
 
     <!-- CPU Paddle -->
-    <a-entity id="cpu-paddle" position="0 0.95 -3.2">
-      <a-cylinder radius="0.012" height="0.10" color="#8B4513" position="0 -0.05 0"></a-cylinder>
-      <a-cylinder radius="0.08" height="0.015" color="#1565c0" rotation="90 0 0"></a-cylinder>
+    <a-entity id="cpu-paddle" position="0 0.95 -3.1">
+      <a-box width="0.15" height="0.16" depth="0.015" color="#1565c0"></a-box>
+      <a-box width="0.025" height="0.10" depth="0.025" color="#8B4513" position="0 -0.13 0"></a-box>
     </a-entity>
 
-    <!-- Desktop paddle (hidden in VR) -->
+    <!-- Desktop Paddle -->
     <a-entity id="desktop-paddle" position="0 1 0.2">
-      <a-cylinder radius="0.012" height="0.10" color="#8B4513" position="0 -0.05 0"></a-cylinder>
-      <a-cylinder radius="0.08" height="0.015" color="#c62828" rotation="90 0 0"></a-cylinder>
+      <a-box width="0.15" height="0.16" depth="0.015" color="#c62828"></a-box>
+      <a-box width="0.025" height="0.10" depth="0.025" color="#8B4513" position="0 -0.13 0"></a-box>
     </a-entity>
 
-    <!-- Score in VR -->
-    <a-text id="vr-score" value="YOU: 0 — CPU: 0" position="0 2.2 -1.5" align="center" color="#fff" width="4"></a-text>
+    <!-- VR Score -->
+    <a-text id="vr-score" value="0 — 0" position="0 2.2 -1.5" align="center" color="#fff" width="5"></a-text>
     <a-text id="vr-msg" value="TRIGGER = Serve" position="0 1.9 -1.5" align="center" color="#4fc3f7" width="3"></a-text>
 
-    <!-- Camera Rig -->
+    <!-- Player -->
     <a-entity id="rig" position="0 0 1">
       <a-camera></a-camera>
       
-      <!-- RIGHT HAND with paddle as child! -->
-      <a-entity id="rhand"
-                oculus-touch-controls="hand: right; model: false"
-                vive-controls="hand: right"
-                windows-motion-controls="hand: right">
-        <!-- PADDLE DIRECTLY ATTACHED TO CONTROLLER -->
-        <a-entity id="vr-paddle" rotation="-90 0 0" position="0 0 -0.05">
-          <a-cylinder radius="0.012" height="0.10" color="#8B4513" position="0 -0.07 0"></a-cylinder>
-          <a-cylinder radius="0.08" height="0.015" color="#c62828"></a-cylinder>
+      <!-- Right controller with paddle -->
+      <a-entity id="rhand" oculus-touch-controls="hand: right; model: false">
+        <!-- Paddle - simple box oriented correctly -->
+        <a-entity id="vr-paddle" position="0 0 -0.08">
+          <a-box width="0.15" height="0.16" depth="0.015" color="#c62828"></a-box>
+          <a-box width="0.025" height="0.10" depth="0.025" color="#8B4513" position="0 -0.13 0"></a-box>
+          <!-- Hit zone visualizer (debug - remove later) -->
+          <a-sphere radius="0.12" color="#00ff00" opacity="0.15" position="0 0 0"></a-sphere>
         </a-entity>
       </a-entity>
       
@@ -99,19 +73,22 @@
   </a-scene>
 
   <script>
-    let pScore = 0, cScore = 0;
-    let ballV = {x:0, y:0, z:0};
-    let state = 'wait'; // wait, play
+    let myScore = 0, cpuScore = 0;
+    let vx = 0, vy = 0, vz = 0;
+    let playing = false;
     let lastHit = '';
     let inVR = false;
     
-    const G = -9.8, TABLE_Y = 0.775, TABLE_Z = -1.5;
+    const GRAVITY = -8;
+    const TABLE_TOP = 0.78;
+    const TABLE_Z = -1.5;
+    const HIT_RADIUS = 0.12; // generous hit zone
     
     let ball, cpuPaddle, desktopPaddle, vrPaddle, rhand;
+    let lastPaddlePos = new THREE.Vector3();
+    let paddleVelocity = new THREE.Vector3();
     
-    document.querySelector('a-scene').addEventListener('loaded', init);
-    
-    function init() {
+    document.querySelector('a-scene').addEventListener('loaded', () => {
       ball = document.getElementById('ball');
       cpuPaddle = document.getElementById('cpu-paddle');
       desktopPaddle = document.getElementById('desktop-paddle');
@@ -128,159 +105,160 @@
         desktopPaddle.setAttribute('visible', true);
       });
       
-      // Controller events
+      // All possible serve buttons
       rhand.addEventListener('triggerdown', serve);
       rhand.addEventListener('gripdown', serve);
       rhand.addEventListener('abuttondown', serve);
       rhand.addEventListener('bbuttondown', serve);
+      rhand.addEventListener('xbuttondown', serve);
+      rhand.addEventListener('ybuttondown', serve);
       
-      // Desktop controls
-      document.addEventListener('keydown', e => { if(e.code==='Space') serve(); });
-      document.addEventListener('click', serve);
+      document.addEventListener('keydown', e => { if(e.code === 'Space') serve(); });
+      document.addEventListener('click', () => { if(!inVR) serve(); });
+      
       document.addEventListener('mousemove', e => {
         if (!inVR) {
           const x = (e.clientX / window.innerWidth - 0.5) * 1.4;
-          const y = 0.85 + (1 - e.clientY / window.innerHeight) * 0.4;
+          const y = 0.8 + (1 - e.clientY / window.innerHeight) * 0.5;
           desktopPaddle.object3D.position.set(x, y, 0.2);
         }
       });
       
-      loop();
-    }
+      gameLoop();
+    });
     
     function serve() {
-      if (state !== 'wait') return;
-      state = 'play';
-      lastHit = 'p';
+      if (playing) return;
+      playing = true;
+      lastHit = 'player';
       
-      // Get paddle position
-      let px, py, pz;
+      const pp = getPaddleWorldPos();
+      ball.object3D.position.set(pp.x, pp.y + 0.2, pp.z - 0.15);
+      
+      vx = (Math.random() - 0.5) * 2;
+      vy = 3;
+      vz = -6;
+      
+      document.getElementById('vr-msg').setAttribute('value', '');
+    }
+    
+    function getPaddleWorldPos() {
       if (inVR) {
-        const wp = new THREE.Vector3();
-        vrPaddle.object3D.getWorldPosition(wp);
-        px = wp.x; py = wp.y; pz = wp.z;
+        const pos = new THREE.Vector3();
+        vrPaddle.object3D.getWorldPosition(pos);
+        return pos;
       } else {
-        const p = desktopPaddle.object3D.position;
-        px = p.x; py = p.y; pz = p.z;
-      }
-      
-      ball.object3D.position.set(px, py + 0.15, pz - 0.1);
-      ballV = { x: (Math.random()-0.5)*2, y: 2.5, z: -5 };
-      setMsg('');
-    }
-    
-    function loop() {
-      if (state === 'play') {
-        updateBall();
-        updateCPU();
-        checkHit();
-      }
-      requestAnimationFrame(loop);
-    }
-    
-    function updateBall() {
-      const p = ball.object3D.position;
-      const dt = 0.016;
-      
-      ballV.y += G * dt;
-      p.x += ballV.x * dt;
-      p.y += ballV.y * dt;
-      p.z += ballV.z * dt;
-      
-      // Table bounce
-      if (p.y < TABLE_Y && p.z > -2.87 && p.z < -0.13 && Math.abs(p.x) < 0.76) {
-        p.y = TABLE_Y;
-        ballV.y = Math.abs(ballV.y) * 0.8;
-      }
-      
-      // Net
-      if (Math.abs(p.z - TABLE_Z) < 0.03 && p.y < TABLE_Y + 0.15) {
-        ballV.z *= -0.5;
-      }
-      
-      // Out
-      if (p.y < 0 || Math.abs(p.x) > 2.5 || p.z > 2 || p.z < -5) {
-        score(p.z > TABLE_Z ? 'c' : 'p');
+        return desktopPaddle.object3D.position.clone();
       }
     }
     
-    function updateCPU() {
-      const bp = ball.object3D.position;
-      const cp = cpuPaddle.object3D.position;
+    function gameLoop() {
+      const dt = 1/60;
       
-      if (ballV.z < 0) {
-        const t = Math.max(0.1, (cp.z - bp.z) / -ballV.z);
-        const tx = Math.max(-0.6, Math.min(0.6, bp.x + ballV.x * t * 0.5));
-        cp.x += (tx - cp.x) * 0.08;
+      // Track paddle velocity
+      const currentPos = getPaddleWorldPos();
+      paddleVelocity.subVectors(currentPos, lastPaddlePos).multiplyScalar(60);
+      lastPaddlePos.copy(currentPos);
+      
+      if (playing) {
+        // Ball physics
+        vy += GRAVITY * dt;
+        const bp = ball.object3D.position;
+        bp.x += vx * dt;
+        bp.y += vy * dt;
+        bp.z += vz * dt;
+        
+        // Table bounce
+        if (bp.y < TABLE_TOP && bp.z > -2.87 && bp.z < -0.13 && Math.abs(bp.x) < 0.76) {
+          bp.y = TABLE_TOP;
+          vy = Math.abs(vy) * 0.75;
+        }
+        
+        // Net
+        if (Math.abs(bp.z - TABLE_Z) < 0.03 && bp.y < TABLE_TOP + 0.14) {
+          vz *= -0.3;
+        }
+        
+        // Player paddle collision
+        const pp = getPaddleWorldPos();
+        const distPlayer = bp.distanceTo(pp);
+        
+        if (distPlayer < HIT_RADIUS && lastHit !== 'player' && bp.z > pp.z - 0.2) {
+          lastHit = 'player';
+          
+          // Hit direction based on where ball hit paddle + paddle velocity
+          const offsetX = (bp.x - pp.x) * 20;
+          
+          vx = offsetX + paddleVelocity.x * 0.3 + (Math.random() - 0.5);
+          vy = 2.5 + Math.abs(paddleVelocity.y) * 0.2;
+          vz = -6 - Math.abs(paddleVelocity.z) * 0.5;
+          
+          flash('#4caf50');
+        }
+        
+        // CPU paddle collision
+        const cp = cpuPaddle.object3D.position;
+        const distCPU = bp.distanceTo(cp);
+        
+        if (distCPU < HIT_RADIUS && lastHit !== 'cpu') {
+          lastHit = 'cpu';
+          
+          const offsetX = (bp.x - cp.x) * 15;
+          vx = offsetX + (Math.random() - 0.5) * 2;
+          vy = 2 + Math.random();
+          vz = 5 + Math.random() * 2;
+          
+          flash('#f44336');
+        }
+        
+        // CPU AI
+        if (vz < 0) {
+          const timeToArrive = Math.max(0.1, (cp.z - bp.z) / -vz);
+          const targetX = bp.x + vx * timeToArrive * 0.4;
+          cp.x += (Math.max(-0.55, Math.min(0.55, targetX)) - cp.x) * 0.06;
+        }
+        cp.y = 0.95 + Math.sin(Date.now() / 400) * 0.02;
+        
+        // Out of bounds
+        if (bp.y < 0 || Math.abs(bp.x) > 2 || bp.z > 2 || bp.z < -5) {
+          scored(bp.z > TABLE_Z ? 'cpu' : 'player');
+        }
       }
-      cp.y = 0.95 + Math.sin(Date.now()/300) * 0.02;
+      
+      requestAnimationFrame(gameLoop);
     }
     
-    function checkHit() {
-      const bp = ball.object3D.position;
-      
-      // Player paddle (VR or desktop)
-      let pp;
-      if (inVR) {
-        pp = new THREE.Vector3();
-        vrPaddle.object3D.getWorldPosition(pp);
-      } else {
-        pp = desktopPaddle.object3D.position;
-      }
-      
-      const distP = Math.hypot(bp.x - pp.x, bp.y - pp.y, bp.z - pp.z);
-      if (distP < 0.1 && lastHit !== 'p') {
-        hit('p', pp);
-      }
-      
-      // CPU paddle
-      const cp = cpuPaddle.object3D.position;
-      const distC = Math.hypot(bp.x - cp.x, bp.y - cp.y, bp.z - cp.z);
-      if (distC < 0.1 && lastHit !== 'c') {
-        hit('c', cp);
-      }
-    }
-    
-    function hit(who, paddle) {
-      lastHit = who;
-      const bp = ball.object3D.position;
-      const ox = (bp.x - paddle.x) * 15;
-      const dir = who === 'p' ? -1 : 1;
-      
-      ballV = { x: ox + (Math.random()-0.5)*2, y: 2 + Math.random(), z: dir * (5 + Math.random()*2) };
-      
-      ball.setAttribute('color', who === 'p' ? '#4caf50' : '#f44336');
+    function flash(color) {
+      ball.setAttribute('color', color);
       setTimeout(() => ball.setAttribute('color', '#ff9800'), 100);
     }
     
-    function score(winner) {
-      state = 'wait';
-      if (winner === 'p') pScore++; else cScore++;
-      updateHUD();
-      resetBall();
+    function scored(winner) {
+      playing = false;
+      if (winner === 'player') myScore++; else cpuScore++;
       
-      if (pScore >= 11 || cScore >= 11) {
-        setMsg(pScore > cScore ? '🏆 YOU WIN!' : '😢 CPU WINS');
-        setTimeout(() => { pScore = cScore = 0; updateHUD(); setMsg('TRIGGER = Serve'); }, 3000);
+      updateScore();
+      ball.object3D.position.set(0, 1.3, -0.3);
+      vx = vy = vz = 0;
+      lastHit = '';
+      
+      if (myScore >= 11 || cpuScore >= 11) {
+        document.getElementById('vr-msg').setAttribute('value', 
+          myScore > cpuScore ? '🏆 YOU WIN!' : '😢 CPU WINS');
+        setTimeout(() => {
+          myScore = cpuScore = 0;
+          updateScore();
+          document.getElementById('vr-msg').setAttribute('value', 'TRIGGER = Serve');
+        }, 3000);
       } else {
-        setMsg('TRIGGER = Serve');
+        document.getElementById('vr-msg').setAttribute('value', 'TRIGGER = Serve');
       }
     }
     
-    function resetBall() {
-      ball.object3D.position.set(0, 1.5, -0.5);
-      ballV = {x:0, y:0, z:0};
-      lastHit = '';
-    }
-    
-    function updateHUD() {
-      const t = `YOU: ${pScore} — CPU: ${cScore}`;
-      document.getElementById('hud').textContent = t;
-      document.getElementById('vr-score').setAttribute('value', t);
-    }
-    
-    function setMsg(m) {
-      document.getElementById('vr-msg').setAttribute('value', m);
+    function updateScore() {
+      const txt = `${myScore} — ${cpuScore}`;
+      document.getElementById('hud').textContent = txt;
+      document.getElementById('vr-score').setAttribute('value', txt);
     }
   </script>
 </body>
