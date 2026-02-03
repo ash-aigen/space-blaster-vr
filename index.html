@@ -2,20 +2,23 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>🌲 Space Blaster VR</title>
-  <meta name="description" content="A simple VR game - destroy asteroids by looking at them!">
+  <title>🏓 VR Ping Pong</title>
+  <meta name="description" content="VR Table Tennis for Oculus Quest - play with controllers!">
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-environment-component@1.3.3/dist/aframe-environment-component.min.js"></script>
   <style>
     #score-display {
       position: fixed;
       top: 20px;
-      left: 20px;
-      color: #0f0;
-      font-family: 'Courier New', monospace;
-      font-size: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font-family: 'Arial', sans-serif;
+      font-size: 28px;
       z-index: 999;
-      text-shadow: 0 0 10px #0f0;
+      text-shadow: 2px 2px 4px #000;
+      background: rgba(0,0,0,0.5);
+      padding: 10px 30px;
+      border-radius: 10px;
     }
     #instructions {
       position: fixed;
@@ -24,231 +27,362 @@
       transform: translateX(-50%);
       color: #fff;
       font-family: Arial, sans-serif;
-      font-size: 18px;
+      font-size: 16px;
       z-index: 999;
       text-align: center;
-      background: rgba(0,0,0,0.5);
-      padding: 10px 20px;
+      background: rgba(0,0,0,0.7);
+      padding: 15px 25px;
       border-radius: 10px;
+      max-width: 400px;
     }
   </style>
 </head>
 <body>
-  <div id="score-display">SCORE: 0</div>
-  <div id="instructions">👀 Look at asteroids to destroy them! Enter VR for full experience.</div>
+  <div id="score-display">YOU: 0 — CPU: 0</div>
+  <div id="instructions">
+    🎮 <strong>Quest Controllers:</strong> Move paddle with right hand<br>
+    🖱️ <strong>Desktop:</strong> Move mouse to control paddle<br>
+    ⏎ Press <strong>TRIGGER</strong> or <strong>SPACE</strong> to serve
+  </div>
 
   <a-scene>
-    <!-- Environment: Space -->
-    <a-sky color="#000011"></a-sky>
+    <!-- Environment -->
+    <a-sky color="#1a1a2e"></a-sky>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#16213e"></a-plane>
     
-    <!-- Stars -->
-    <a-entity id="stars"></a-entity>
+    <!-- Ambient lighting -->
+    <a-light type="ambient" color="#404040" intensity="0.5"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="0.8" position="0 10 5" castShadow="true"></a-light>
+    <a-light type="point" color="#4fc3f7" intensity="0.3" position="0 3 0"></a-light>
 
-    <!-- Player camera with cursor (gaze-based interaction) -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera>
-        <a-cursor 
-          color="#00ff00" 
-          fuse="true" 
-          fuse-timeout="500"
-          raycaster="objects: .shootable"
-          animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150"
-          animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.5 0.5 0.5; dur: 500"
-          animation__mouseleave="property: scale; startEvents: mouseleave; to: 1 1 1; dur: 150">
-        </a-cursor>
-        <!-- Crosshair ring -->
-        <a-ring color="#00ff00" radius-inner="0.02" radius-outer="0.03" position="0 0 -1" opacity="0.5"></a-ring>
+    <!-- Ping Pong Table -->
+    <a-entity id="table" position="0 0.76 -1.5">
+      <!-- Table top (green) -->
+      <a-box position="0 0 0" width="1.525" height="0.03" depth="2.74" color="#1b5e20" shadow></a-box>
+      <!-- White lines -->
+      <a-box position="0 0.016 0" width="0.02" height="0.001" depth="2.74" color="#ffffff"></a-box>
+      <a-box position="0 0.016 0" width="1.525" height="0.001" depth="0.02" color="#ffffff"></a-box>
+      <a-box position="0.7525 0.016 0" width="0.02" height="0.001" depth="2.74" color="#ffffff"></a-box>
+      <a-box position="-0.7525 0.016 0" width="0.02" height="0.001" depth="2.74" color="#ffffff"></a-box>
+      <a-box position="0 0.016 1.36" width="1.525" height="0.001" depth="0.02" color="#ffffff"></a-box>
+      <a-box position="0 0.016 -1.36" width="1.525" height="0.001" depth="0.02" color="#ffffff"></a-box>
+      <!-- Net -->
+      <a-box position="0 0.08 0" width="1.7" height="0.15" depth="0.02" color="#333333" opacity="0.7"></a-box>
+      <a-box position="0 0.155 0" width="1.7" height="0.01" depth="0.025" color="#ffffff"></a-box>
+      <!-- Table legs -->
+      <a-box position="0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="-0.65 -0.38 1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="0.65 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+      <a-box position="-0.65 -0.38 -1.2" width="0.05" height="0.76" depth="0.05" color="#444"></a-box>
+    </a-entity>
+
+    <!-- Ball -->
+    <a-sphere id="ball" position="0 1.2 -0.5" radius="0.02" color="#ff9800" shadow>
+      <a-light type="point" color="#ff9800" intensity="0.2" distance="0.5"></a-light>
+    </a-sphere>
+
+    <!-- Player Paddle (right hand controller) -->
+    <a-entity id="player-paddle" position="0 1 0.3">
+      <!-- Paddle handle -->
+      <a-cylinder position="0 -0.06 0" radius="0.015" height="0.1" color="#8d6e63"></a-cylinder>
+      <!-- Paddle face -->
+      <a-box position="0 0.02 0" width="0.15" height="0.01" depth="0.17" color="#c62828"></a-box>
+      <a-box position="0 0.025 0" width="0.14" height="0.005" depth="0.16" color="#1a1a1a"></a-box>
+    </a-entity>
+
+    <!-- CPU Paddle -->
+    <a-entity id="cpu-paddle" position="0 1 -3.3">
+      <a-cylinder position="0 -0.06 0" radius="0.015" height="0.1" color="#8d6e63"></a-cylinder>
+      <a-box position="0 0.02 0" width="0.15" height="0.01" depth="0.17" color="#1565c0"></a-box>
+      <a-box position="0 0.025 0" width="0.14" height="0.005" depth="0.16" color="#1a1a1a"></a-box>
+    </a-entity>
+
+    <!-- VR Score display -->
+    <a-text id="vr-score" value="YOU: 0 — CPU: 0" position="0 2.2 -1.5" align="center" color="#ffffff" width="4"></a-text>
+    <a-text id="vr-message" value="Press TRIGGER to serve" position="0 1.8 -1.5" align="center" color="#4fc3f7" width="3"></a-text>
+
+    <!-- Player Rig with Controllers -->
+    <a-entity id="rig" position="0 0 1">
+      <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+        <!-- Crosshair for desktop -->
+        <a-ring color="#fff" radius-inner="0.001" radius-outer="0.002" position="0 0 -0.5" opacity="0.5"></a-ring>
       </a-camera>
+      
+      <!-- Right hand controller (paddle hand) -->
+      <a-entity id="right-hand" 
+                hand-controls="hand: right; handModelStyle: lowPoly; color: #ffcccc"
+                laser-controls="hand: right"
+                raycaster="objects: .interactive; far: 5">
+      </a-entity>
+      
+      <!-- Left hand controller -->
+      <a-entity id="left-hand" 
+                hand-controls="hand: left; handModelStyle: lowPoly; color: #ffcccc">
+      </a-entity>
     </a-entity>
 
-    <!-- Asteroid container -->
-    <a-entity id="asteroids"></a-entity>
-
-    <!-- Ambient light -->
-    <a-light type="ambient" color="#222"></a-light>
-    <a-light type="directional" color="#fff" intensity="0.5" position="-1 2 1"></a-light>
-
-    <!-- Score display in VR -->
-    <a-text id="vr-score" value="SCORE: 0" position="0 2.5 -3" align="center" color="#0f0" width="6"></a-text>
-
-    <!-- Explosion particle template -->
-    <a-entity id="explosion-template" visible="false">
-      <a-sphere radius="0.1" color="#ff6600" opacity="0.8"></a-sphere>
-    </a-entity>
+    <!-- Room boundaries (subtle) -->
+    <a-box position="3 1.5 -1.5" width="0.1" height="3" depth="8" color="#333" opacity="0.3"></a-box>
+    <a-box position="-3 1.5 -1.5" width="0.1" height="3" depth="8" color="#333" opacity="0.3"></a-box>
   </a-scene>
 
   <script>
     // Game state
-    let score = 0;
-    let level = 1;
-    let asteroidsDestroyed = 0;
-    const asteroidsPerLevel = 5;
-
-    // Update score display
-    function updateScore() {
-      document.getElementById('score-display').textContent = `SCORE: ${score} | LEVEL: ${level}`;
-      document.getElementById('vr-score').setAttribute('value', `SCORE: ${score}  LEVEL: ${level}`);
-    }
-
-    // Create stars
-    function createStars() {
-      const starsEl = document.getElementById('stars');
-      for (let i = 0; i < 200; i++) {
-        const star = document.createElement('a-sphere');
-        star.setAttribute('radius', Math.random() * 0.05 + 0.01);
-        star.setAttribute('color', '#ffffff');
-        star.setAttribute('position', {
-          x: (Math.random() - 0.5) * 100,
-          y: (Math.random() - 0.5) * 100,
-          z: (Math.random() - 0.5) * 100
-        });
-        starsEl.appendChild(star);
-      }
-    }
-
-    // Create explosion effect
-    function createExplosion(position) {
-      const scene = document.querySelector('a-scene');
-      const particleCount = 8;
-      
-      for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('a-sphere');
-        particle.setAttribute('radius', 0.1);
-        particle.setAttribute('color', Math.random() > 0.5 ? '#ff6600' : '#ffff00');
-        particle.setAttribute('position', position);
-        particle.setAttribute('opacity', 0.9);
-        
-        // Random direction
-        const angle = (i / particleCount) * Math.PI * 2;
-        const speed = 2 + Math.random() * 2;
-        const targetPos = {
-          x: position.x + Math.cos(angle) * speed,
-          y: position.y + (Math.random() - 0.5) * speed,
-          z: position.z + Math.sin(angle) * speed
-        };
-        
-        particle.setAttribute('animation', {
-          property: 'position',
-          to: `${targetPos.x} ${targetPos.y} ${targetPos.z}`,
-          dur: 500,
-          easing: 'easeOutQuad'
-        });
-        particle.setAttribute('animation__fade', {
-          property: 'opacity',
-          to: 0,
-          dur: 500
-        });
-        particle.setAttribute('animation__shrink', {
-          property: 'scale',
-          to: '0 0 0',
-          dur: 500
-        });
-        
-        scene.appendChild(particle);
-        
-        // Remove particle after animation
-        setTimeout(() => particle.remove(), 600);
-      }
-    }
-
-    // Create asteroid
-    function createAsteroid() {
-      const asteroidsEl = document.getElementById('asteroids');
-      const asteroid = document.createElement('a-dodecahedron');
-      
-      // Random position around player
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 5 + Math.random() * 10;
-      const height = Math.random() * 4 - 1;
-      
-      asteroid.setAttribute('position', {
-        x: Math.cos(angle) * distance,
-        y: height,
-        z: Math.sin(angle) * distance
-      });
-      
-      // Size based on level (smaller = harder)
-      const size = Math.max(0.3, 1 - level * 0.05) + Math.random() * 0.5;
-      asteroid.setAttribute('radius', size);
-      
-      // Brownish-gray color
-      const shade = Math.floor(Math.random() * 50 + 60);
-      asteroid.setAttribute('color', `rgb(${shade + 20}, ${shade}, ${shade - 10})`);
-      
-      asteroid.classList.add('shootable');
-      
-      // Rotate animation
-      asteroid.setAttribute('animation', {
-        property: 'rotation',
-        to: `${Math.random() * 360} ${Math.random() * 360} ${Math.random() * 360}`,
-        loop: true,
-        dur: 3000 + Math.random() * 4000,
-        easing: 'linear'
-      });
-      
-      // Slow movement
-      const moveSpeed = 10000 + Math.random() * 10000;
-      const newAngle = angle + (Math.random() - 0.5);
-      const newDistance = 5 + Math.random() * 10;
-      asteroid.setAttribute('animation__move', {
-        property: 'position',
-        to: `${Math.cos(newAngle) * newDistance} ${Math.random() * 4 - 1} ${Math.sin(newAngle) * newDistance}`,
-        dur: moveSpeed,
-        loop: true,
-        dir: 'alternate',
-        easing: 'easeInOutSine'
-      });
-      
-      // Click handler (gaze-triggered)
-      asteroid.addEventListener('click', function() {
-        const pos = this.getAttribute('position');
-        createExplosion({x: pos.x, y: pos.y, z: pos.z});
-        
-        // Score based on size (smaller = more points)
-        const asteroidSize = this.getAttribute('radius');
-        const points = Math.floor((2 - asteroidSize) * 100);
-        score += points;
-        asteroidsDestroyed++;
-        
-        // Level up
-        if (asteroidsDestroyed >= asteroidsPerLevel * level) {
-          level++;
-          // Spawn more asteroids
-          for (let i = 0; i < 3; i++) {
-            setTimeout(() => createAsteroid(), i * 500);
-          }
-        }
-        
-        updateScore();
-        this.remove();
-        
-        // Spawn new asteroid
-        setTimeout(createAsteroid, 1000 + Math.random() * 2000);
-      });
-      
-      // Visual feedback on hover
-      asteroid.addEventListener('mouseenter', function() {
-        this.setAttribute('color', '#ff4444');
-      });
-      asteroid.addEventListener('mouseleave', function() {
-        const shade = Math.floor(Math.random() * 50 + 60);
-        this.setAttribute('color', `rgb(${shade + 20}, ${shade}, ${shade - 10})`);
-      });
-      
-      asteroidsEl.appendChild(asteroid);
-    }
-
-    // Initialize game
+    let playerScore = 0;
+    let cpuScore = 0;
+    let ballVelocity = { x: 0, y: 0, z: 0 };
+    let gameState = 'waiting'; // waiting, playing, scored
+    let lastHit = 'none'; // player, cpu, none
+    
+    // Physics constants
+    const GRAVITY = -9.8;
+    const BOUNCE_DAMPING = 0.8;
+    const TABLE_HEIGHT = 0.76;
+    const TABLE_HALF_WIDTH = 0.7625;
+    const TABLE_HALF_DEPTH = 1.37;
+    const TABLE_Z = -1.5;
+    const BALL_RADIUS = 0.02;
+    const PADDLE_HALF_WIDTH = 0.075;
+    const PADDLE_HALF_DEPTH = 0.085;
+    
+    // Elements
+    let ball, playerPaddle, cpuPaddle, rightHand;
+    let lastTime = 0;
+    
+    // Initialize
     document.querySelector('a-scene').addEventListener('loaded', function() {
-      createStars();
+      ball = document.getElementById('ball');
+      playerPaddle = document.getElementById('player-paddle');
+      cpuPaddle = document.getElementById('cpu-paddle');
+      rightHand = document.getElementById('right-hand');
       
-      // Spawn initial asteroids
-      for (let i = 0; i < 8; i++) {
-        setTimeout(() => createAsteroid(), i * 300);
+      // Controller events
+      rightHand.addEventListener('triggerdown', serve);
+      
+      // Keyboard serve
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') serve();
+      });
+      
+      // Mouse control for desktop
+      document.addEventListener('mousemove', (e) => {
+        if (!document.pointerLockElement) {
+          const x = (e.clientX / window.innerWidth - 0.5) * 1.4;
+          const y = 0.9 + (1 - e.clientY / window.innerHeight) * 0.4;
+          playerPaddle.setAttribute('position', { x: x, y: y, z: 0.3 });
+        }
+      });
+      
+      // Start game loop
+      requestAnimationFrame(gameLoop);
+    });
+    
+    function serve() {
+      if (gameState !== 'waiting') return;
+      
+      gameState = 'playing';
+      lastHit = 'player';
+      
+      // Position ball above paddle
+      const paddlePos = playerPaddle.getAttribute('position');
+      ball.setAttribute('position', {
+        x: paddlePos.x,
+        y: paddlePos.y + 0.3,
+        z: paddlePos.z - 0.1
+      });
+      
+      // Serve velocity (towards opponent)
+      ballVelocity = {
+        x: (Math.random() - 0.5) * 2,
+        y: 2,
+        z: -4
+      };
+      
+      updateMessage('');
+    }
+    
+    function gameLoop(time) {
+      const delta = Math.min((time - lastTime) / 1000, 0.1);
+      lastTime = time;
+      
+      if (gameState === 'playing') {
+        updateBall(delta);
+        updateCPU(delta);
+        updatePaddleFromController();
+        checkCollisions();
+      }
+      
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function updateBall(delta) {
+      const pos = ball.object3D.position;
+      
+      // Apply gravity
+      ballVelocity.y += GRAVITY * delta;
+      
+      // Update position
+      pos.x += ballVelocity.x * delta;
+      pos.y += ballVelocity.y * delta;
+      pos.z += ballVelocity.z * delta;
+      
+      // Table bounce
+      const tableTop = TABLE_HEIGHT + 0.015 + BALL_RADIUS;
+      if (pos.y < tableTop && 
+          pos.z > TABLE_Z - TABLE_HALF_DEPTH && 
+          pos.z < TABLE_Z + TABLE_HALF_DEPTH &&
+          Math.abs(pos.x) < TABLE_HALF_WIDTH) {
+        pos.y = tableTop;
+        ballVelocity.y = -ballVelocity.y * BOUNCE_DAMPING;
+        
+        // Add spin effect
+        ballVelocity.x += (Math.random() - 0.5) * 0.5;
+      }
+      
+      // Net collision
+      if (Math.abs(pos.z - TABLE_Z) < 0.05 && pos.y < TABLE_HEIGHT + 0.15) {
+        ballVelocity.z = -ballVelocity.z * 0.5;
+        pos.z = TABLE_Z + (pos.z > TABLE_Z ? 0.06 : -0.06);
+      }
+      
+      // Ball out of bounds
+      if (pos.y < 0 || Math.abs(pos.x) > 3 || pos.z > 2 || pos.z < -5) {
+        score(pos.z > TABLE_Z ? 'cpu' : 'player');
+      }
+    }
+    
+    function updateCPU(delta) {
+      const ballPos = ball.object3D.position;
+      const cpuPos = cpuPaddle.object3D.position;
+      
+      // Only react when ball is coming towards CPU
+      if (ballVelocity.z < 0) {
+        // Predict where ball will be
+        const timeToReach = (cpuPos.z - ballPos.z) / -ballVelocity.z;
+        const predictedX = ballPos.x + ballVelocity.x * timeToReach * 0.7;
+        
+        // Move towards predicted position with some lag
+        const speed = 3;
+        const targetX = Math.max(-0.6, Math.min(0.6, predictedX));
+        cpuPos.x += (targetX - cpuPos.x) * speed * delta;
+        
+        // Slight vertical movement
+        const targetY = 0.95 + Math.sin(Date.now() / 500) * 0.05;
+        cpuPos.y += (targetY - cpuPos.y) * 2 * delta;
+      }
+    }
+    
+    function updatePaddleFromController() {
+      // Get controller position in world space
+      const controllerPos = rightHand.object3D.position;
+      const rigPos = document.getElementById('rig').object3D.position;
+      
+      // Only update if controller is being tracked (has moved from origin)
+      if (controllerPos.x !== 0 || controllerPos.y !== 0 || controllerPos.z !== 0) {
+        playerPaddle.object3D.position.set(
+          rigPos.x + controllerPos.x,
+          rigPos.y + controllerPos.y,
+          Math.min(0.5, rigPos.z + controllerPos.z)
+        );
+        
+        // Copy rotation too
+        playerPaddle.object3D.rotation.copy(rightHand.object3D.rotation);
+      }
+    }
+    
+    function checkCollisions() {
+      const ballPos = ball.object3D.position;
+      
+      // Player paddle collision
+      const playerPos = playerPaddle.object3D.position;
+      if (checkPaddleCollision(ballPos, playerPos, 'player')) {
+        hitBall(playerPos, 'player');
+      }
+      
+      // CPU paddle collision
+      const cpuPos = cpuPaddle.object3D.position;
+      if (checkPaddleCollision(ballPos, cpuPos, 'cpu')) {
+        hitBall(cpuPos, 'cpu');
+      }
+    }
+    
+    function checkPaddleCollision(ballPos, paddlePos, who) {
+      const dx = Math.abs(ballPos.x - paddlePos.x);
+      const dy = Math.abs(ballPos.y - paddlePos.y);
+      const dz = Math.abs(ballPos.z - paddlePos.z);
+      
+      return dx < PADDLE_HALF_WIDTH + BALL_RADIUS &&
+             dy < 0.05 + BALL_RADIUS &&
+             dz < PADDLE_HALF_DEPTH + BALL_RADIUS &&
+             lastHit !== who;
+    }
+    
+    function hitBall(paddlePos, who) {
+      lastHit = who;
+      
+      const ballPos = ball.object3D.position;
+      
+      // Calculate hit offset from paddle center
+      const offsetX = (ballPos.x - paddlePos.x) / PADDLE_HALF_WIDTH;
+      const offsetZ = (ballPos.z - paddlePos.z) / PADDLE_HALF_DEPTH;
+      
+      // Set new velocity based on hit
+      const speed = 5 + Math.random() * 2;
+      const direction = who === 'player' ? -1 : 1;
+      
+      ballVelocity = {
+        x: offsetX * 3 + (Math.random() - 0.5),
+        y: 2 + Math.random(),
+        z: direction * speed
+      };
+      
+      // Visual feedback
+      ball.setAttribute('color', who === 'player' ? '#4caf50' : '#f44336');
+      setTimeout(() => ball.setAttribute('color', '#ff9800'), 100);
+    }
+    
+    function score(winner) {
+      gameState = 'waiting';
+      
+      if (winner === 'player') {
+        playerScore++;
+      } else {
+        cpuScore++;
       }
       
       updateScore();
-    });
+      resetBall();
+      
+      // Check for game end
+      if (playerScore >= 11 || cpuScore >= 11) {
+        const msg = playerScore > cpuScore ? '🏆 YOU WIN!' : '😢 CPU WINS';
+        updateMessage(msg);
+        setTimeout(() => {
+          playerScore = 0;
+          cpuScore = 0;
+          updateScore();
+          updateMessage('Press TRIGGER to serve');
+        }, 3000);
+      } else {
+        updateMessage('Press TRIGGER to serve');
+      }
+    }
+    
+    function resetBall() {
+      ball.setAttribute('position', { x: 0, y: 1.2, z: -0.5 });
+      ballVelocity = { x: 0, y: 0, z: 0 };
+      lastHit = 'none';
+    }
+    
+    function updateScore() {
+      const text = `YOU: ${playerScore} — CPU: ${cpuScore}`;
+      document.getElementById('score-display').textContent = text;
+      document.getElementById('vr-score').setAttribute('value', text);
+    }
+    
+    function updateMessage(msg) {
+      document.getElementById('vr-message').setAttribute('value', msg);
+    }
   </script>
 </body>
 </html>
