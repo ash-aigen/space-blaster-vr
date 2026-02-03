@@ -2,10 +2,10 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>🏓 VR Ping Pong DEBUG</title>
+  <title>🏓 VR Controller Test</title>
   <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
   <style>
-    #debug { position:fixed; top:10px; left:10px; right:10px; color:#0f0; font:14px monospace; background:rgba(0,0,0,0.9); padding:15px; border-radius:5px; z-index:9999; white-space:pre-wrap; max-height:50vh; overflow:auto; }
+    #debug { position:fixed; top:10px; left:10px; color:#0f0; font:12px monospace; background:rgba(0,0,0,0.8); padding:10px; z-index:9999; }
   </style>
 </head>
 <body>
@@ -13,29 +13,31 @@
 
   <a-scene webxr="requiredFeatures: local-floor">
     <a-sky color="#1a1a2e"></a-sky>
-    <a-plane rotation="-90 0 0" width="20" height="20" color="#16213e"></a-plane>
+    <a-plane rotation="-90 0 0" width="10" height="10" color="#16213e"></a-plane>
     <a-light type="ambient" intensity="0.6"></a-light>
+    <a-light type="directional" intensity="0.5" position="1 3 2"></a-light>
 
-    <!-- Table -->
-    <a-box position="0 0.76 -1.5" width="1.525" height="0.03" depth="2.74" color="#1b5e20"></a-box>
+    <!-- Reference: A box at origin -->
+    <a-box position="0 0.5 -1" width="0.2" height="0.2" depth="0.2" color="#888"></a-box>
+    <a-text value="Origin (0,0.5,-1)" position="0 0.9 -1" align="center" color="#fff" width="2"></a-text>
 
-    <!-- Ball -->
-    <a-sphere id="ball" radius="0.04" color="#ff9800" position="0 1 -0.5"></a-sphere>
+    <!-- Ball - will drop from controller on trigger -->
+    <a-sphere id="ball" radius="0.05" color="#ff9800" position="0 2 -1">
+      <a-light type="point" color="#ff9800" intensity="0.3" distance="1"></a-light>
+    </a-sphere>
 
-    <!-- CPU Paddle -->
-    <a-box id="cpu-paddle" position="0 0.95 -2.5" width="0.15" height="0.15" depth="0.02" color="#1565c0"></a-box>
+    <!-- GREEN = Raw controller position (gripSpace) -->
+    <a-sphere id="grip-marker" radius="0.03" color="#00ff00" position="0 1 0"></a-sphere>
+    
+    <!-- RED = Paddle (should match green) -->
+    <a-box id="paddle" width="0.12" height="0.12" depth="0.02" color="#c62828" position="0 1 0"></a-box>
 
-    <!-- Player Paddle (will be moved by code) -->
-    <a-box id="player-paddle" position="0 1 0" width="0.15" height="0.15" depth="0.02" color="#c62828"></a-box>
-
-    <!-- Controller debug marker -->
-    <a-sphere id="debug-marker" radius="0.05" color="#00ff00" position="0 1 0"></a-sphere>
-
-    <!-- BIG VR Debug text -->
-    <a-text id="vr-debug" value="Waiting..." position="0 2 -1.5" align="center" color="#0f0" width="4" wrap-count="60"></a-text>
+    <!-- Debug text in VR -->
+    <a-text id="vr-debug" value="Enter VR..." position="0 1.8 -1" align="center" color="#0f0" width="3"></a-text>
+    <a-text id="vr-instructions" value="TRIGGER = drop ball\nGRIP = reset" position="0 1.5 -1" align="center" color="#4fc3f7" width="2.5"></a-text>
 
     <!-- Camera -->
-    <a-entity id="rig" position="0 0 1">
+    <a-entity position="0 0 0">
       <a-camera></a-camera>
     </a-entity>
   </a-scene>
@@ -43,215 +45,177 @@
   <script>
     const debugEl = document.getElementById('debug');
     const vrDebugEl = document.getElementById('vr-debug');
-    let logs = [];
     
     function log(msg) {
-      const time = new Date().toLocaleTimeString();
-      const line = `[${time}] ${msg}`;
-      logs.unshift(line);
-      logs = logs.slice(0, 20);
-      debugEl.textContent = logs.join('\n');
-      if (vrDebugEl) vrDebugEl.setAttribute('value', logs.slice(0, 5).join('\n'));
-      console.log(line);
+      debugEl.textContent = msg;
+      if (vrDebugEl) vrDebugEl.setAttribute('value', msg);
+      console.log(msg);
     }
-    
-    log('Script started');
     
     // State
     let inVR = false;
     let xrSession = null;
     let xrRefSpace = null;
     let rightController = null;
-    let controllerPos = { x: 0, y: 1, z: 0 };
+    let ballDropped = false;
+    let ballVelY = 0;
     
     // Elements
-    let scene, renderer, playerPaddle, debugMarker, ball;
+    let scene, renderer, gripMarker, paddle, ball;
     
     function init() {
       scene = document.querySelector('a-scene');
-      
-      if (!scene) {
-        log('No scene yet, waiting...');
-        setTimeout(init, 200);
+      if (!scene?.hasLoaded) {
+        scene?.addEventListener('loaded', init);
+        setTimeout(init, 100);
         return;
       }
       
-      if (!scene.hasLoaded) {
-        log('Scene loading...');
-        scene.addEventListener('loaded', onSceneLoaded);
-        return;
-      }
-      
-      onSceneLoaded();
-    }
-    
-    function onSceneLoaded() {
-      log('Scene loaded!');
-      
-      playerPaddle = document.getElementById('player-paddle');
-      debugMarker = document.getElementById('debug-marker');
+      gripMarker = document.getElementById('grip-marker');
+      paddle = document.getElementById('paddle');
       ball = document.getElementById('ball');
       renderer = scene.renderer;
       
-      log(`Renderer: ${renderer ? 'OK' : 'MISSING'}`);
-      log(`Renderer.xr: ${renderer?.xr ? 'OK' : 'MISSING'}`);
-      
       scene.addEventListener('enter-vr', onEnterVR);
-      scene.addEventListener('exit-vr', onExitVR);
+      scene.addEventListener('exit-vr', () => { inVR = false; xrSession = null; });
       
-      // Start tick loop
-      scene.setAttribute('tick-handler', '');
-      
-      log('Ready! Click "Enter VR" button');
+      log('Ready! Enter VR');
     }
     
     function onEnterVR() {
       inVR = true;
-      log('=== ENTERED VR ===');
+      log('Entered VR...');
       
-      const xr = renderer.xr;
-      log(`renderer.xr.enabled: ${xr?.enabled}`);
-      log(`renderer.xr.isPresenting: ${xr?.isPresenting}`);
+      xrSession = renderer.xr?.getSession?.();
+      if (!xrSession) { log('No XR session!'); return; }
       
-      xrSession = xr?.getSession?.();
-      log(`XR Session: ${xrSession ? 'GOT IT!' : 'NULL!'}`);
-      
-      if (!xrSession) {
-        log('ERROR: No XR session!');
-        return;
-      }
-      
-      // Request reference space
-      log('Requesting reference space...');
       xrSession.requestReferenceSpace('local-floor')
-        .then(space => {
-          xrRefSpace = space;
-          log('Got local-floor refspace!');
-        })
-        .catch(e => {
-          log(`local-floor failed: ${e.message}`);
-          return xrSession.requestReferenceSpace('local');
-        })
-        .then(space => {
-          if (!xrRefSpace) {
-            xrRefSpace = space;
-            log('Got local refspace (fallback)');
+        .then(space => { xrRefSpace = space; log('Got refspace'); })
+        .catch(() => xrSession.requestReferenceSpace('local').then(s => { xrRefSpace = s; }));
+      
+      // Find controller
+      function findController() {
+        for (const src of xrSession.inputSources) {
+          if (src.handedness === 'right' && src.gripSpace) {
+            rightController = src;
+            log('Controller found!');
+            return;
           }
-        })
-        .catch(e => log(`All refspace failed: ${e.message}`));
+        }
+        log(`Controllers: ${xrSession.inputSources.length}, waiting for right...`);
+      }
       
-      // Check input sources immediately
-      log(`Input sources: ${xrSession.inputSources?.length || 0}`);
-      checkControllers();
+      findController();
+      xrSession.addEventListener('inputsourceschange', findController);
       
-      // Listen for changes
-      xrSession.addEventListener('inputsourceschange', () => {
-        log('Input sources changed!');
-        checkControllers();
-      });
-      
-      // Button events
+      // TRIGGER = drop ball
       xrSession.addEventListener('selectstart', () => {
-        log('SELECT (trigger pressed)!');
+        log('TRIGGER! Dropping ball...');
+        dropBall();
       });
+      
+      // GRIP = reset
       xrSession.addEventListener('squeezestart', () => {
-        log('SQUEEZE (grip pressed)!');
+        log('GRIP! Reset.');
+        resetBall();
       });
     }
     
-    function onExitVR() {
-      inVR = false;
-      xrSession = null;
-      xrRefSpace = null;
-      rightController = null;
-      log('Exited VR');
+    function dropBall() {
+      if (!ball || !rightController) return;
+      
+      // Get current controller position
+      const frame = renderer.xr?.getFrame?.();
+      if (!frame || !xrRefSpace) return;
+      
+      const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
+      if (!pose) return;
+      
+      const p = pose.transform.position;
+      ball.object3D.position.set(p.x, p.y, p.z);
+      ballDropped = true;
+      ballVelY = 0;
+      log(`Ball dropped at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
     }
     
-    function checkControllers() {
-      if (!xrSession) return;
-      
-      rightController = null;
-      const sources = xrSession.inputSources;
-      
-      log(`Found ${sources.length} input source(s)`);
-      
-      for (let i = 0; i < sources.length; i++) {
-        const src = sources[i];
-        log(`  [${i}] hand=${src.handedness} mode=${src.targetRayMode} grip=${src.gripSpace ? 'YES' : 'NO'}`);
-        
-        if (src.handedness === 'right' && src.gripSpace) {
-          rightController = src;
-          log('>>> Right controller with gripSpace found!');
-        }
-      }
-      
-      if (!rightController) {
-        log('WARNING: No right controller with gripSpace!');
-      }
+    function resetBall() {
+      if (!ball) return;
+      ball.object3D.position.set(0, 2, -1);
+      ballDropped = false;
+      ballVelY = 0;
+      log('Ball reset');
     }
     
-    // A-Frame component for tick
-    AFRAME.registerComponent('tick-handler', {
+    // Tick - update controller position and ball physics
+    AFRAME.registerComponent('game-tick', {
       tick: function(time, delta) {
-        if (!inVR) return;
-        if (!xrSession || !xrRefSpace || !rightController) return;
+        const dt = Math.min(delta / 1000, 0.05);
         
-        // Get XR frame from renderer
-        const frame = renderer.xr.getFrame?.();
-        if (!frame) {
-          // Only log occasionally
-          if (Math.random() < 0.01) log('No XR frame');
-          return;
+        // Ball gravity
+        if (ballDropped && ball) {
+          ballVelY -= 9.81 * dt;
+          ball.object3D.position.y += ballVelY * dt;
+          
+          // Floor bounce
+          if (ball.object3D.position.y < 0.05) {
+            ball.object3D.position.y = 0.05;
+            ballVelY = -ballVelY * 0.6;
+            if (Math.abs(ballVelY) < 0.3) {
+              ballVelY = 0;
+              ballDropped = false;
+            }
+          }
         }
         
-        // Get controller pose
+        // Controller tracking
+        if (!inVR || !xrSession || !xrRefSpace || !rightController) return;
+        
+        const frame = renderer.xr?.getFrame?.();
+        if (!frame) return;
+        
         try {
           const pose = frame.getPose(rightController.gripSpace, xrRefSpace);
-          
           if (pose) {
             const p = pose.transform.position;
-            controllerPos = { x: p.x, y: p.y, z: p.z };
+            const q = pose.transform.orientation;
             
-            // Update paddle position
-            if (playerPaddle && playerPaddle.object3D) {
-              playerPaddle.object3D.position.set(p.x, p.y, p.z);
+            // Update grip marker (green sphere)
+            if (gripMarker?.object3D) {
+              gripMarker.object3D.position.set(p.x, p.y, p.z);
             }
             
-            // Update debug marker
-            if (debugMarker && debugMarker.object3D) {
-              debugMarker.object3D.position.set(p.x, p.y, p.z);
+            // Update paddle (red box) - SAME POSITION, no offset
+            if (paddle?.object3D) {
+              paddle.object3D.position.set(p.x, p.y, p.z);
+              paddle.object3D.quaternion.set(q.x, q.y, q.z, q.w);
             }
             
-            // Log position every second
-            if (Math.random() < 0.02) {
-              log(`Controller: x=${p.x.toFixed(2)} y=${p.y.toFixed(2)} z=${p.z.toFixed(2)}`);
-            }
-          } else {
-            if (Math.random() < 0.01) log('getPose returned null');
+            // Show position
+            log(`x:${p.x.toFixed(2)} y:${p.y.toFixed(2)} z:${p.z.toFixed(2)}`);
           }
-        } catch (e) {
-          log(`Pose error: ${e.message}`);
-        }
+        } catch (e) {}
       }
     });
     
-    // Desktop mouse control
+    // Desktop fallback
     document.addEventListener('mousemove', e => {
       if (inVR) return;
-      if (!playerPaddle || !playerPaddle.object3D) return;
-      
       const x = (e.clientX / window.innerWidth - 0.5) * 2;
-      const y = 0.7 + (1 - e.clientY / window.innerHeight) * 0.6;
-      playerPaddle.object3D.position.set(x, y, 0);
-      if (debugMarker) debugMarker.object3D.position.set(x, y, 0);
+      const y = 0.5 + (1 - e.clientY / window.innerHeight) * 1.5;
+      if (gripMarker?.object3D) gripMarker.object3D.position.set(x, y, -0.5);
+      if (paddle?.object3D) paddle.object3D.position.set(x, y, -0.5);
     });
     
+    document.addEventListener('click', () => { if (!inVR) dropBall(); });
+    
     // Start
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
-    } else {
+    document.addEventListener('DOMContentLoaded', () => {
       init();
-    }
+      setTimeout(() => {
+        const s = document.querySelector('a-scene');
+        if (s) s.setAttribute('game-tick', '');
+      }, 500);
+    });
   </script>
 </body>
 </html>
