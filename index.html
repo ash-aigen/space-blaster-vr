@@ -326,8 +326,18 @@
                 const p = pose.transform.position;
                 const q = pose.transform.orientation;
                 
+                // Controller quaternion
+                const quat = new THREE.Quaternion(q.x, q.y, q.z, q.w);
+                
+                // Offset: paddle is in front of grip, pointing forward
+                // Adjust these values to feel right!
+                const offset = new THREE.Vector3(0, 0, -0.12); // 12cm in front
+                offset.applyQuaternion(quat);
+                
+                const paddlePos = new THREE.Vector3(p.x, p.y, p.z).add(offset);
+                
                 lastControllerPos.copy(controllerPos);
-                controllerPos.set(p.x, p.y, p.z);
+                controllerPos.copy(paddlePos);
                 
                 // Calculate velocity
                 if (dt > 0.001) {
@@ -336,8 +346,16 @@
                 
                 // Update paddle visual
                 if (playerPaddle?.object3D) {
-                  playerPaddle.object3D.position.copy(controllerPos);
-                  playerPaddle.object3D.quaternion.set(q.x, q.y, q.z, q.w);
+                  playerPaddle.object3D.position.copy(paddlePos);
+                  
+                  // Rotate paddle to be flat (like holding a real paddle)
+                  // Start with controller rotation, then adjust
+                  playerPaddle.object3D.quaternion.copy(quat);
+                  
+                  // Additional rotation to make paddle face forward
+                  const adjustRot = new THREE.Quaternion();
+                  adjustRot.setFromEuler(new THREE.Euler(-Math.PI/4, 0, 0)); // Tilt 45° forward
+                  playerPaddle.object3D.quaternion.multiply(adjustRot);
                 }
               }
             } catch(e) {}
