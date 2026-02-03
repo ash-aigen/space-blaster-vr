@@ -109,16 +109,22 @@
       xrSession.addEventListener('inputsourceschange', findController);
       
       // TRIGGER = drop ball
-      xrSession.addEventListener('selectstart', () => {
-        log('TRIGGER! Dropping ball...');
+      xrSession.addEventListener('selectstart', (e) => {
+        log(`SELECT from ${e.inputSource?.handedness || 'unknown'}`);
+        dropBall();
+      });
+      xrSession.addEventListener('select', (e) => {
+        log(`SELECT-end from ${e.inputSource?.handedness || 'unknown'}`);
+      });
+      
+      // GRIP = also drop ball (backup)
+      xrSession.addEventListener('squeezestart', (e) => {
+        log(`SQUEEZE from ${e.inputSource?.handedness || 'unknown'}`);
         dropBall();
       });
       
-      // GRIP = reset
-      xrSession.addEventListener('squeezestart', () => {
-        log('GRIP! Reset.');
-        resetBall();
-      });
+      // A/B buttons via gamepad polling
+      log('Listening for buttons...');
     }
     
     function dropBall() {
@@ -164,6 +170,24 @@
               ballVelY = 0;
               ballDropped = false;
             }
+          }
+        }
+        
+        // Check gamepad buttons (A/B etc)
+        if (rightController?.gamepad) {
+          const gp = rightController.gamepad;
+          // Button 0 = trigger, 1 = grip, 4 = A, 5 = B
+          for (let i = 0; i < gp.buttons.length; i++) {
+            if (gp.buttons[i].pressed) {
+              log(`Gamepad btn ${i} pressed!`);
+              if (!window._btnPressed) {
+                window._btnPressed = true;
+                dropBall();
+              }
+            }
+          }
+          if (!gp.buttons.some(b => b.pressed)) {
+            window._btnPressed = false;
           }
         }
         
