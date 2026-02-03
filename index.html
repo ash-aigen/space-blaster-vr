@@ -8,27 +8,13 @@
   <style>
     #hud { position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; font:bold 24px Arial; background:rgba(0,0,0,0.6); padding:10px 25px; border-radius:10px; z-index:999; }
     #info { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); color:#fff; font:14px Arial; background:rgba(0,0,0,0.7); padding:8px 15px; border-radius:8px; z-index:999; }
-    #debug { position:fixed; top:60px; right:10px; color:#0f0; font:12px monospace; background:rgba(0,0,0,0.8); padding:10px; border-radius:5px; z-index:999; display:none; max-width:300px; }
-    #test-panel { position:fixed; top:10px; left:10px; color:#fff; font:12px Arial; background:rgba(0,0,50,0.9); padding:10px; border-radius:5px; z-index:999; display:none; }
-    #test-panel button { margin:2px; padding:5px 10px; cursor:pointer; }
-    #test-panel.visible, #debug.visible { display:block; }
+    #debug { position:fixed; top:60px; right:10px; color:#0f0; font:12px monospace; background:rgba(0,0,0,0.8); padding:10px; border-radius:5px; z-index:999; max-width:350px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
   <div id="hud">0 — 0</div>
-  <div id="info">🎮 TRIGGER = serve | Press D = debug | T = tests</div>
-  <div id="debug"></div>
-  <div id="test-panel">
-    <strong>🧪 Tests</strong><br>
-    <button onclick="runPhysicsTests()">Physics</button>
-    <button onclick="runAITests()">AI</button>
-    <button onclick="runAllTests()">All</button>
-    <button onclick="testServe()">Test Serve</button>
-    <button onclick="setDifficulty(0)">Easy</button>
-    <button onclick="setDifficulty(1)">Medium</button>
-    <button onclick="setDifficulty(2)">Hard</button>
-    <div id="test-results" style="margin-top:10px;font-size:11px;max-height:200px;overflow:auto;"></div>
-  </div>
+  <div id="info">🎮 TRIGGER/A/B = serve | GRIP = debug</div>
+  <div id="debug">Debug: waiting for init...</div>
 
   <a-scene webxr="requiredFeatures: local-floor; optionalFeatures: hand-tracking">
     <a-sky color="#1a1a2e"></a-sky>
@@ -55,36 +41,41 @@
     </a-sphere>
 
     <!-- CPU Paddle -->
-    <a-entity id="cpu-paddle" position="0 0.95 -3.1">
+    <a-entity id="cpu-paddle" position="0 0.95 -2.87">
       <a-box width="0.15" height="0.16" depth="0.015" color="#1565c0"></a-box>
       <a-box width="0.025" height="0.10" depth="0.025" color="#8B4513" position="0 -0.13 0"></a-box>
     </a-entity>
 
-    <!-- Desktop Paddle -->
+    <!-- Desktop Paddle (hidden in VR) -->
     <a-entity id="desktop-paddle" position="0 1 0.2">
       <a-box width="0.15" height="0.16" depth="0.015" color="#c62828"></a-box>
       <a-box width="0.025" height="0.10" depth="0.025" color="#8B4513" position="0 -0.13 0"></a-box>
     </a-entity>
 
-    <!-- Ball trajectory prediction (debug) -->
-    <a-entity id="prediction-marker" visible="false">
-      <a-sphere radius="0.015" color="#00ff00" opacity="0.5"></a-sphere>
-    </a-entity>
-
-    <!-- VR Score -->
+    <!-- VR Score display -->
     <a-text id="vr-score" value="0 — 0" position="0 2.2 -1.5" align="center" color="#fff" width="5"></a-text>
     <a-text id="vr-msg" value="TRIGGER = Serve" position="0 1.9 -1.5" align="center" color="#4fc3f7" width="3"></a-text>
+    <a-text id="vr-debug" value="" position="-0.8 2.5 -1.5" align="left" color="#0f0" width="2"></a-text>
 
-    <!-- Player -->
+    <!-- Player rig -->
     <a-entity id="rig" position="0 0 1">
       <a-camera></a-camera>
-      <a-entity id="rhand" oculus-touch-controls="hand: right; model: false" tracked-controls="hand: right">
-        <a-entity id="vr-paddle" position="0 0 -0.08">
+      
+      <!-- Right hand with paddle -->
+      <a-entity id="rhand" 
+                oculus-touch-controls="hand: right" 
+                laser-controls="hand: right">
+        <!-- Paddle attached to controller -->
+        <a-entity id="vr-paddle" position="0 0 -0.05" rotation="-45 0 0">
           <a-box width="0.15" height="0.16" depth="0.015" color="#c62828"></a-box>
           <a-box width="0.025" height="0.10" depth="0.025" color="#8B4513" position="0 -0.13 0"></a-box>
         </a-entity>
+        <!-- Debug sphere at controller position -->
+        <a-sphere id="controller-marker" radius="0.02" color="#00ff00" position="0 0 0"></a-sphere>
       </a-entity>
-      <a-entity oculus-touch-controls="hand: left; model: false"></a-entity>
+      
+      <!-- Left hand -->
+      <a-entity id="lhand" oculus-touch-controls="hand: left"></a-entity>
     </a-entity>
   </a-scene>
 
@@ -94,27 +85,15 @@
     // ============ GAME STATE ============
     let myScore = 0, cpuScore = 0;
     let ballVel = { x: 0, y: 0, z: 0 };
-    let ballSpin = { x: 0, y: 0, z: 0 };
     let playing = false;
     let lastHit = '';
     let lastHitTime = 0;
     let inVR = false;
-    let debugMode = false;
-    let testMode = false;
+    let controllerConnected = false;
+    let initialized = false;
     
-    // ============ PHYSICS CONSTANTS (REALISTIC) ============
-    const PHYSICS = {
-      gravity: -9.81,           // Real gravity
-      airResistance: 0.995,     // Air drag per frame
-      tableBounceFactor: 0.85,  // Energy retained on table bounce
-      paddleBounceFactor: 0.9,  // Energy retained on paddle hit
-      spinInfluence: 0.15,      // How much spin affects trajectory
-      spinDecay: 0.99,          // Spin reduction per frame
-      magnusEffect: 0.02,       // Spin lift effect
-      ballMass: 0.0027,         // 2.7g ping pong ball
-      minBounceVel: 0.3,
-    };
-    
+    // ============ PHYSICS ============
+    const GRAVITY = -9.81;
     const TABLE = {
       top: 0.775,
       z: -1.5,
@@ -124,63 +103,47 @@
       netHeight: 0.152
     };
     
-    // ============ AI CONFIGURATION ============
-    const AI_DIFFICULTY = {
-      easy: {
-        reactionTime: 0.3,      // Seconds delay before reacting
-        accuracy: 0.6,          // Position accuracy (0-1)
-        maxSpeed: 2.0,          // Max paddle speed m/s
-        predictionError: 0.15,  // Random error in prediction
-        aggression: 0.3,        // How hard it hits back
-        anticipation: 0.0       // Doesn't predict bounces
-      },
-      medium: {
-        reactionTime: 0.15,
-        accuracy: 0.8,
-        maxSpeed: 3.5,
-        predictionError: 0.08,
-        aggression: 0.6,
-        anticipation: 0.5
-      },
-      hard: {
-        reactionTime: 0.05,
-        accuracy: 0.95,
-        maxSpeed: 5.0,
-        predictionError: 0.02,
-        aggression: 0.85,
-        anticipation: 1.0
-      }
+    // ============ AI CONFIG (AGGRESSIVE) ============
+    const AI = {
+      reactionDelay: 0.08,    // Very fast reaction
+      speed: 6.0,             // Fast movement
+      accuracy: 0.92,         // High accuracy
+      returnSpeed: 5.5,       // Strong returns
+      predictAhead: true
     };
+    let aiReactionTimer = 0;
+    let aiTarget = { x: 0, y: 0.95 };
     
-    let currentDifficulty = AI_DIFFICULTY.medium;
-    let aiState = {
-      targetX: 0,
-      targetY: 0.95,
-      lastBallZ: 0,
-      reactionTimer: 0,
-      hasReacted: false,
-      predictedLanding: null,
-      swingPhase: 'ready', // ready, backswing, swing, follow
-      swingTimer: 0
-    };
+    // ============ PADDLE TRACKING ============
+    let lastPaddlePos = new THREE.Vector3();
+    let paddleVelocity = new THREE.Vector3();
+    let lastFrameTime = 0;
     
     // ============ ELEMENTS ============
-    let ball, cpuPaddle, desktopPaddle, vrPaddle, rhand, scene, predictionMarker;
-    let lastPaddlePos = null;
-    let smoothedPaddlePos = null;
-    let paddleVelocity = { x: 0, y: 0, z: 0 };
-    let lastFrameTime = 0;
-    let initialized = false;
+    let ball, cpuPaddle, desktopPaddle, vrPaddle, rhand, scene;
     
-    // ============ TEST RESULTS ============
-    let testResults = [];
+    // ============ DEBUG ============
+    function log(msg) {
+      const dbg = document.getElementById('debug');
+      if (dbg) {
+        const time = new Date().toLocaleTimeString();
+        dbg.textContent = `[${time}]\n${msg}\n\n` + dbg.textContent.slice(0, 800);
+      }
+      // Also show in VR
+      const vrDbg = document.getElementById('vr-debug');
+      if (vrDbg) vrDbg.setAttribute('value', msg.slice(0, 100));
+    }
     
     // ============ INITIALIZATION ============
     function init() {
       scene = document.querySelector('a-scene');
       if (!scene) { setTimeout(init, 100); return; }
-      scene.addEventListener('loaded', onSceneLoaded);
-      if (scene.hasLoaded) onSceneLoaded();
+      
+      if (scene.hasLoaded) {
+        onSceneLoaded();
+      } else {
+        scene.addEventListener('loaded', onSceneLoaded);
+      }
     }
     
     function onSceneLoaded() {
@@ -191,34 +154,67 @@
       desktopPaddle = document.getElementById('desktop-paddle');
       vrPaddle = document.getElementById('vr-paddle');
       rhand = document.getElementById('rhand');
-      predictionMarker = document.getElementById('prediction-marker');
       
-      if (!ball || !cpuPaddle || !desktopPaddle || !vrPaddle || !rhand) {
+      if (!ball || !cpuPaddle || !vrPaddle || !rhand) {
+        log('Waiting for elements...');
         setTimeout(onSceneLoaded, 100);
         return;
       }
       
       initialized = true;
-      lastPaddlePos = new THREE.Vector3();
-      smoothedPaddlePos = new THREE.Vector3();
+      log('Scene loaded!\nWaiting for VR...');
       
-      scene.addEventListener('enter-vr', () => { 
+      // VR state
+      scene.addEventListener('enter-vr', () => {
         inVR = true;
         if (desktopPaddle) desktopPaddle.setAttribute('visible', false);
+        log('ENTERED VR MODE');
       });
-      scene.addEventListener('exit-vr', () => { 
+      
+      scene.addEventListener('exit-vr', () => {
         inVR = false;
         if (desktopPaddle) desktopPaddle.setAttribute('visible', true);
+        log('Exited VR');
       });
       
-      ['triggerdown', 'gripdown', 'abuttondown', 'bbuttondown'].forEach(evt => {
-        rhand.addEventListener(evt, serve);
+      // Controller events - multiple ways to trigger serve
+      rhand.addEventListener('controllerconnected', (e) => {
+        controllerConnected = true;
+        log(`Controller connected!\n${e.detail.name}`);
       });
       
-      document.addEventListener('keydown', e => { 
+      // All possible button events for serve
+      const serveEvents = [
+        'triggerdown', 'triggerup',
+        'gripdown', 
+        'abuttondown', 'bbuttondown',
+        'xbuttondown', 'ybuttondown',
+        'thumbstickdown'
+      ];
+      
+      serveEvents.forEach(evt => {
+        rhand.addEventListener(evt, (e) => {
+          log(`Button: ${evt}`);
+          if (evt === 'gripdown') {
+            // Grip = toggle debug visibility
+            const dbg = document.getElementById('debug');
+            dbg.style.display = dbg.style.display === 'none' ? 'block' : 'none';
+          } else if (evt.includes('down')) {
+            serve();
+          }
+        });
+      });
+      
+      // Left hand can also serve
+      const lhand = document.getElementById('lhand');
+      if (lhand) {
+        lhand.addEventListener('triggerdown', serve);
+        lhand.addEventListener('gripdown', serve);
+      }
+      
+      // Desktop controls
+      document.addEventListener('keydown', e => {
         if (e.code === 'Space') serve();
-        if (e.code === 'KeyD') toggleDebug();
-        if (e.code === 'KeyT') toggleTests();
       });
       document.addEventListener('click', () => { if (!inVR) serve(); });
       
@@ -233,509 +229,282 @@
       lastFrameTime = performance.now();
       requestAnimationFrame(gameLoop);
       
-      log('Game initialized');
+      log('Init complete!\nPress TRIGGER to serve');
     }
     
-    // ============ DEBUG & TESTS ============
-    function toggleDebug() {
-      debugMode = !debugMode;
-      document.getElementById('debug').classList.toggle('visible', debugMode);
-      if (predictionMarker) predictionMarker.setAttribute('visible', debugMode);
-    }
-    
-    function toggleTests() {
-      testMode = !testMode;
-      document.getElementById('test-panel').classList.toggle('visible', testMode);
-    }
-    
-    function log(msg) {
-      if (debugMode) {
-        const dbg = document.getElementById('debug');
-        dbg.innerHTML = msg + '<br>' + dbg.innerHTML.split('<br>').slice(0, 15).join('<br>');
+    // ============ GET PADDLE POSITION ============
+    function getPaddleWorldPos() {
+      let paddle = inVR ? vrPaddle : desktopPaddle;
+      if (!paddle || !paddle.object3D) {
+        log('No paddle!');
+        return null;
       }
-    }
-    
-    function setDifficulty(level) {
-      const levels = ['easy', 'medium', 'hard'];
-      currentDifficulty = AI_DIFFICULTY[levels[level]];
-      log(`AI difficulty: ${levels[level]}`);
-      document.getElementById('test-results').innerHTML += `<div>Set difficulty: ${levels[level]}</div>`;
-    }
-    
-    // ============ PHYSICS TESTS ============
-    function runPhysicsTests() {
-      testResults = [];
-      const results = document.getElementById('test-results');
-      results.innerHTML = '<strong>Running Physics Tests...</strong><br>';
       
-      // Test 1: Gravity
-      let testBall = { y: 2, vy: 0 };
-      for (let i = 0; i < 60; i++) {
-        testBall.vy += PHYSICS.gravity * (1/60);
-        testBall.y += testBall.vy * (1/60);
-      }
-      const gravityPass = Math.abs(testBall.y - 1.51) < 0.1; // Should fall ~0.49m in 1s
-      results.innerHTML += `<div style="color:${gravityPass?'#0f0':'#f00'}">✓ Gravity: ball falls ${(2-testBall.y).toFixed(2)}m in 1s (expected ~0.49m)</div>`;
+      const pos = new THREE.Vector3();
       
-      // Test 2: Bounce energy conservation
-      let bounceTest = { y: 1.5, vy: -3 };
-      bounceTest.vy = Math.abs(bounceTest.vy) * PHYSICS.tableBounceFactor;
-      const bouncePass = Math.abs(bounceTest.vy - 2.55) < 0.1;
-      results.innerHTML += `<div style="color:${bouncePass?'#0f0':'#f00'}">✓ Bounce: vy ${bounceTest.vy.toFixed(2)} (expected 2.55)</div>`;
-      
-      // Test 3: Air resistance
-      let airTest = { vx: 10 };
-      for (let i = 0; i < 60; i++) airTest.vx *= PHYSICS.airResistance;
-      const airPass = airTest.vx < 8 && airTest.vx > 6;
-      results.innerHTML += `<div style="color:${airPass?'#0f0':'#f00'}">✓ Air drag: vx ${airTest.vx.toFixed(2)} after 1s (expected 7-8)</div>`;
-      
-      // Test 4: Spin effect
-      let spinTest = { x: 0, vx: 5, spin: 10 };
-      for (let i = 0; i < 30; i++) {
-        spinTest.vx += spinTest.spin * PHYSICS.spinInfluence * (1/60);
-        spinTest.x += spinTest.vx * (1/60);
-      }
-      const spinPass = spinTest.x > 2.5;
-      results.innerHTML += `<div style="color:${spinPass?'#0f0':'#f00'}">✓ Spin curve: x=${spinTest.x.toFixed(2)} (expected >2.5)</div>`;
-      
-      results.innerHTML += '<strong>Physics tests complete</strong><br>';
-    }
-    
-    // ============ AI TESTS ============
-    function runAITests() {
-      const results = document.getElementById('test-results');
-      results.innerHTML = '<strong>Running AI Tests...</strong><br>';
-      
-      // Test 1: Prediction accuracy
-      const testCases = [
-        { bx: 0, bz: -1, vx: 0, vz: -5, expectedX: 0 },
-        { bx: 0.3, bz: -1, vx: 1, vz: -5, expectedX: 0.72 },
-        { bx: -0.2, bz: -2, vx: -0.5, vz: -3, expectedX: -0.38 },
-      ];
-      
-      testCases.forEach((tc, i) => {
-        const predicted = predictBallLanding(tc.bx, tc.bz, tc.vx, tc.vz, 0, -3.1);
-        const error = Math.abs(predicted.x - tc.expectedX);
-        const pass = error < 0.2;
-        results.innerHTML += `<div style="color:${pass?'#0f0':'#f00'}">✓ Prediction ${i+1}: x=${predicted.x.toFixed(2)} (expected ${tc.expectedX}, err=${error.toFixed(2)})</div>`;
-      });
-      
-      // Test 2: Reaction time
-      const reactionTest = currentDifficulty.reactionTime < 0.2;
-      results.innerHTML += `<div style="color:${reactionTest?'#0f0':'#ff0'}">✓ Reaction time: ${currentDifficulty.reactionTime}s</div>`;
-      
-      // Test 3: Movement speed cap
-      const speedTest = currentDifficulty.maxSpeed <= 5;
-      results.innerHTML += `<div style="color:${speedTest?'#0f0':'#f00'}">✓ Max speed: ${currentDifficulty.maxSpeed} m/s</div>`;
-      
-      results.innerHTML += '<strong>AI tests complete</strong><br>';
-    }
-    
-    function runAllTests() {
-      runPhysicsTests();
-      setTimeout(runAITests, 100);
-    }
-    
-    function testServe() {
-      serve();
-      log('Test serve executed');
-    }
-    
-    // ============ BALL TRAJECTORY PREDICTION ============
-    function predictBallLanding(bx, bz, vx, vz, vy, targetZ) {
-      // Simulate ball trajectory to predict where it will be at targetZ
-      let simX = bx, simY = TABLE.top + 0.1, simZ = bz;
-      let simVx = vx, simVy = vy || 0, simVz = vz;
-      const dt = 1/120; // High precision simulation
-      const maxSteps = 500;
-      
-      for (let i = 0; i < maxSteps && simZ > targetZ; i++) {
-        // Gravity
-        simVy += PHYSICS.gravity * dt;
-        
-        // Air resistance
-        simVx *= PHYSICS.airResistance;
-        simVz *= PHYSICS.airResistance;
-        
-        // Move
-        simX += simVx * dt;
-        simY += simVy * dt;
-        simZ += simVz * dt;
-        
-        // Table bounce
-        if (simY < TABLE.top && simZ > TABLE.minZ && simZ < TABLE.maxZ && Math.abs(simX) < TABLE.halfWidth) {
-          simY = TABLE.top;
-          simVy = Math.abs(simVy) * PHYSICS.tableBounceFactor;
+      if (inVR) {
+        // Force update the entire hierarchy
+        if (rhand && rhand.object3D) {
+          rhand.object3D.updateMatrixWorld(true);
         }
-        
-        // Floor (out)
-        if (simY < 0.3) break;
-      }
-      
-      return { x: simX, y: simY, z: simZ, vx: simVx, vy: simVy };
-    }
-    
-    // ============ ADVANCED AI ============
-    function updateAI(dt) {
-      if (!cpuPaddle || !cpuPaddle.object3D || !ball || !ball.object3D) return;
-      
-      const bp = ball.object3D.position;
-      const cp = cpuPaddle.object3D.position;
-      const diff = currentDifficulty;
-      
-      // Detect when ball is coming towards AI
-      const ballApproaching = ballVel.z < -0.5;
-      const ballInAIHalf = bp.z < TABLE.z;
-      
-      // Reset reaction when ball changes direction
-      if (bp.z > aiState.lastBallZ + 0.1) {
-        aiState.hasReacted = false;
-        aiState.reactionTimer = 0;
-        aiState.swingPhase = 'ready';
-      }
-      aiState.lastBallZ = bp.z;
-      
-      if (ballApproaching) {
-        // Reaction delay
-        if (!aiState.hasReacted) {
-          aiState.reactionTimer += dt;
-          if (aiState.reactionTimer >= diff.reactionTime) {
-            aiState.hasReacted = true;
-            
-            // Predict where ball will land
-            const prediction = predictBallLanding(bp.x, bp.z, ballVel.x, ballVel.z, ballVel.y, cp.z);
-            
-            // Add error based on difficulty
-            const error = (Math.random() - 0.5) * 2 * diff.predictionError;
-            aiState.predictedLanding = {
-              x: prediction.x + error,
-              y: prediction.y
-            };
-            
-            // Update debug marker
-            if (predictionMarker && debugMode) {
-              predictionMarker.object3D.position.set(prediction.x, TABLE.top + 0.05, cp.z);
-            }
-            
-            log(`AI predicts: x=${prediction.x.toFixed(2)}`);
-          }
-        }
-        
-        // Move towards predicted position
-        if (aiState.hasReacted && aiState.predictedLanding) {
-          const targetX = aiState.predictedLanding.x * diff.accuracy;
-          const clampedX = Math.max(-0.55, Math.min(0.55, targetX));
-          
-          // Speed-limited movement
-          const dx = clampedX - cp.x;
-          const moveSpeed = Math.min(diff.maxSpeed * dt, Math.abs(dx));
-          cp.x += Math.sign(dx) * moveSpeed;
-          
-          // Vertical positioning for incoming ball height
-          const targetY = 0.92 + (aiState.predictedLanding.y - TABLE.top) * 0.3;
-          cp.y += (Math.max(0.85, Math.min(1.1, targetY)) - cp.y) * 3 * dt;
-        }
-        
-        // Swing animation when ball is close
-        const distToBall = Math.abs(bp.z - cp.z);
-        if (distToBall < 0.5 && aiState.swingPhase === 'ready') {
-          aiState.swingPhase = 'backswing';
-          aiState.swingTimer = 0;
-        }
-        
+        paddle.object3D.getWorldPosition(pos);
       } else {
-        // Return to center when ball going away
-        cp.x += (0 - cp.x) * 2 * dt;
-        cp.y += (0.95 - cp.y) * 2 * dt;
-        aiState.predictedLanding = null;
+        pos.copy(paddle.object3D.position);
       }
       
-      // Swing animation
-      if (aiState.swingPhase !== 'ready') {
-        aiState.swingTimer += dt;
-        
-        if (aiState.swingPhase === 'backswing' && aiState.swingTimer > 0.05) {
-          cp.z = -3.1 - 0.05; // Pull back
-          aiState.swingPhase = 'swing';
-          aiState.swingTimer = 0;
-        } else if (aiState.swingPhase === 'swing' && aiState.swingTimer > 0.08) {
-          cp.z = -3.1 + 0.03; // Swing forward
-          aiState.swingPhase = 'follow';
-          aiState.swingTimer = 0;
-        } else if (aiState.swingPhase === 'follow' && aiState.swingTimer > 0.1) {
-          cp.z = -3.1; // Return
-          aiState.swingPhase = 'ready';
-        }
-      }
-    }
-    
-    // ============ REALISTIC PHYSICS ============
-    function updateBallPhysics(dt) {
-      if (!ball || !ball.object3D) return;
-      
-      const pos = ball.object3D.position;
-      
-      // Gravity
-      ballVel.y += PHYSICS.gravity * dt;
-      
-      // Air resistance
-      ballVel.x *= PHYSICS.airResistance;
-      ballVel.y *= Math.pow(PHYSICS.airResistance, 0.5); // Less drag on y
-      ballVel.z *= PHYSICS.airResistance;
-      
-      // Magnus effect (spin causes curve)
-      ballVel.x += ballSpin.y * PHYSICS.magnusEffect;
-      ballVel.y += ballSpin.x * PHYSICS.magnusEffect * 0.5; // Topspin/backspin lift
-      ballVel.z += ballSpin.x * PHYSICS.magnusEffect;
-      
-      // Spin decay
-      ballSpin.x *= PHYSICS.spinDecay;
-      ballSpin.y *= PHYSICS.spinDecay;
-      ballSpin.z *= PHYSICS.spinDecay;
-      
-      // Move ball
-      pos.x += ballVel.x * dt;
-      pos.y += ballVel.y * dt;
-      pos.z += ballVel.z * dt;
-      
-      // Table bounce
-      if (pos.y < TABLE.top && pos.z > TABLE.minZ && pos.z < TABLE.maxZ && Math.abs(pos.x) < TABLE.halfWidth) {
-        pos.y = TABLE.top;
-        
-        if (Math.abs(ballVel.y) > PHYSICS.minBounceVel) {
-          // Realistic bounce with spin effect
-          ballVel.y = Math.abs(ballVel.y) * PHYSICS.tableBounceFactor;
-          
-          // Spin affects horizontal velocity on bounce
-          ballVel.x += ballSpin.y * PHYSICS.spinInfluence * 2;
-          ballVel.z += ballSpin.x * PHYSICS.spinInfluence;
-          
-          // Reduce spin on bounce
-          ballSpin.x *= 0.7;
-          ballSpin.y *= 0.7;
-        } else {
-          ballVel.y = Math.abs(ballVel.y) * 0.3;
-        }
-      }
-      
-      // Net collision
-      if (Math.abs(pos.z - TABLE.z) < 0.04 && pos.y < TABLE.top + TABLE.netHeight && pos.y > TABLE.top - 0.05) {
-        ballVel.z *= -0.3;
-        ballVel.y *= 0.7;
-        pos.z = TABLE.z + (ballVel.z > 0 ? 0.05 : -0.05);
-        log('Net hit!');
-      }
-      
-      // Out of bounds
-      if (pos.y < 0.2 || Math.abs(pos.x) > 2.5 || pos.z > 2.5 || pos.z < -5) {
-        scored(pos.z > TABLE.z ? 'cpu' : 'player');
-      }
-      
-      // Debug info
-      if (debugMode && playing) {
-        log(`Ball: p(${pos.x.toFixed(1)},${pos.y.toFixed(1)},${pos.z.toFixed(1)}) v(${ballVel.x.toFixed(1)},${ballVel.y.toFixed(1)},${ballVel.z.toFixed(1)}) spin(${ballSpin.x.toFixed(1)},${ballSpin.y.toFixed(1)})`);
-      }
+      return pos;
     }
     
     // ============ SERVE ============
     function serve() {
-      if (playing) return;
-      if (!ball || !ball.object3D) return;
+      if (playing) {
+        log('Already playing');
+        return;
+      }
+      
+      log('SERVE!');
       
       playing = true;
       lastHit = 'player';
       lastHitTime = performance.now();
       
-      const pp = getPaddleWorldPos();
-      if (!pp) return;
+      // Get paddle position for serve origin
+      let servePos = getPaddleWorldPos();
       
-      ball.object3D.position.set(pp.x, pp.y + 0.25, pp.z - 0.1);
+      // Fallback if paddle position fails
+      if (!servePos || servePos.length() < 0.01) {
+        servePos = new THREE.Vector3(0, 1.2, 0.5);
+        log('Using fallback serve pos');
+      }
       
-      // Realistic serve
+      log(`Serve from: ${servePos.x.toFixed(2)}, ${servePos.y.toFixed(2)}, ${servePos.z.toFixed(2)}`);
+      
+      // Position ball above paddle
+      ball.object3D.position.set(
+        servePos.x,
+        servePos.y + 0.3,
+        servePos.z - 0.2
+      );
+      
+      // Launch towards opponent
       ballVel = {
-        x: (Math.random() - 0.5) * 1.5,
-        y: 2.0,
-        z: -4.5
+        x: (Math.random() - 0.5) * 1.0,
+        y: 1.5,
+        z: -5.0
       };
       
-      // Add some random spin to serve
-      ballSpin = {
-        x: (Math.random() - 0.5) * 5,
-        y: (Math.random() - 0.5) * 3,
-        z: 0
-      };
-      
-      // Reset AI state
-      aiState.hasReacted = false;
-      aiState.reactionTimer = 0;
-      aiState.swingPhase = 'ready';
+      // Reset AI
+      aiReactionTimer = 0;
+      aiTarget.x = 0;
       
       setMessage('');
-      triggerHaptic(0.3, 50);
-      log('Serve!');
+      triggerHaptic(0.5, 100);
     }
     
-    // ============ HAPTIC FEEDBACK ============
+    // ============ HAPTICS ============
     function triggerHaptic(intensity, duration) {
       if (!inVR || !rhand) return;
       try {
-        const gamepad = rhand.components['tracked-controls']?.controller?.gamepad;
-        if (gamepad?.hapticActuators?.[0]) {
-          gamepad.hapticActuators[0].pulse(intensity, duration);
+        const components = rhand.components;
+        const tc = components['tracked-controls'] || components['oculus-touch-controls'];
+        if (tc && tc.controller && tc.controller.gamepad) {
+          const gp = tc.controller.gamepad;
+          if (gp.hapticActuators && gp.hapticActuators[0]) {
+            gp.hapticActuators[0].pulse(intensity, duration);
+          }
         }
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
     }
     
-    // ============ PADDLE TRACKING ============
-    function getPaddleWorldPos() {
-      if (inVR) {
-        if (!vrPaddle || !vrPaddle.object3D) return null;
-        const pos = new THREE.Vector3();
-        // KRIITTINEN: Päivitä world matrix ennen position hakua
-        vrPaddle.object3D.updateMatrixWorld(true);
-        vrPaddle.object3D.getWorldPosition(pos);
-        
-        // Debug: logita VR-mailan sijainti
-        if (debugMode && playing) {
-          log(`VR paddle: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`);
-        }
-        return pos;
-      } else {
-        if (!desktopPaddle || !desktopPaddle.object3D) return null;
-        return desktopPaddle.object3D.position.clone();
-      }
-    }
-    
-    function updatePaddleTracking(dt) {
-      const currentPos = getPaddleWorldPos();
-      if (!currentPos) return;
-      
-      if (!smoothedPaddlePos) {
-        smoothedPaddlePos = currentPos.clone();
-        lastPaddlePos = currentPos.clone();
-        return;
-      }
-      
-      smoothedPaddlePos.lerp(currentPos, inVR ? 0.6 : 1.0);
-      
-      if (dt > 0) {
-        paddleVelocity.x = (smoothedPaddlePos.x - lastPaddlePos.x) / dt;
-        paddleVelocity.y = (smoothedPaddlePos.y - lastPaddlePos.y) / dt;
-        paddleVelocity.z = (smoothedPaddlePos.z - lastPaddlePos.z) / dt;
-      }
-      
-      lastPaddlePos.copy(smoothedPaddlePos);
-    }
-    
-    // ============ COLLISION DETECTION ============
-    const HIT_RADIUS_DESKTOP = 0.12;
-    const HIT_RADIUS_VR = 0.18;  // Isompi säde VR:ssä - maila on fyysisesti isompi
-    const HIT_COOLDOWN = 150;
-    
-    function checkCollisions(timestamp) {
+    // ============ BALL PHYSICS ============
+    function updateBall(dt) {
       if (!ball || !ball.object3D) return;
       
+      const pos = ball.object3D.position;
+      
+      // Gravity
+      ballVel.y += GRAVITY * dt;
+      
+      // Air resistance
+      ballVel.x *= 0.998;
+      ballVel.z *= 0.998;
+      
+      // Move
+      pos.x += ballVel.x * dt;
+      pos.y += ballVel.y * dt;
+      pos.z += ballVel.z * dt;
+      
+      // Table bounce
+      if (pos.y < TABLE.top + 0.02 && 
+          pos.z > TABLE.minZ && pos.z < TABLE.maxZ && 
+          Math.abs(pos.x) < TABLE.halfWidth) {
+        pos.y = TABLE.top + 0.02;
+        ballVel.y = Math.abs(ballVel.y) * 0.8;
+        if (Math.abs(ballVel.y) < 0.5) ballVel.y = 0.5;
+      }
+      
+      // Net
+      if (Math.abs(pos.z - TABLE.z) < 0.03 && 
+          pos.y < TABLE.top + TABLE.netHeight && 
+          pos.y > TABLE.top - 0.05) {
+        ballVel.z *= -0.3;
+        pos.z = TABLE.z + (ballVel.z > 0 ? 0.05 : -0.05);
+        log('Net!');
+      }
+      
+      // Out of bounds
+      if (pos.y < 0.3 || Math.abs(pos.x) > 2 || pos.z > 2 || pos.z < -4.5) {
+        const winner = pos.z > TABLE.z ? 'cpu' : 'player';
+        scored(winner);
+      }
+    }
+    
+    // ============ AI (HARDER) ============
+    function updateAI(dt) {
+      if (!cpuPaddle || !cpuPaddle.object3D || !ball || !ball.object3D) return;
+      
       const bp = ball.object3D.position;
-      const now = timestamp;
+      const cp = cpuPaddle.object3D.position;
       
-      if (now - lastHitTime < HIT_COOLDOWN) return;
+      // Ball approaching?
+      const approaching = ballVel.z < -0.5;
       
-      // Valitse säde moodin mukaan
-      const hitRadius = inVR ? HIT_RADIUS_VR : HIT_RADIUS_DESKTOP;
-      const hitRadiusSq = hitRadius * hitRadius;
-      
-      // Player paddle
-      const pp = smoothedPaddlePos || getPaddleWorldPos();
-      if (pp && lastHit !== 'player') {
-        const distSq = Math.pow(bp.x - pp.x, 2) + Math.pow(bp.y - pp.y, 2) + Math.pow(bp.z - pp.z, 2);
-        const dist = Math.sqrt(distSq);
+      if (approaching && bp.z < -0.5) {
+        aiReactionTimer += dt;
         
-        // Debug: näytä etäisyys palloon
-        if (debugMode && dist < 0.5) {
-          log(`Ball-paddle dist: ${dist.toFixed(3)} (hit at <${hitRadius.toFixed(2)})`);
+        if (aiReactionTimer > AI.reactionDelay) {
+          // Predict where ball will be at CPU's z position
+          const timeToArrive = (cp.z - bp.z) / ballVel.z;
+          let predictX = bp.x + ballVel.x * timeToArrive;
+          let predictY = bp.y + ballVel.y * timeToArrive + 0.5 * GRAVITY * timeToArrive * timeToArrive;
+          
+          // Account for table bounces
+          if (predictY < TABLE.top && bp.z > TABLE.minZ) {
+            predictY = TABLE.top + 0.15; // Approximate post-bounce height
+          }
+          
+          // Add small random error
+          predictX += (Math.random() - 0.5) * (1 - AI.accuracy) * 0.3;
+          
+          aiTarget.x = Math.max(-0.6, Math.min(0.6, predictX));
+          aiTarget.y = Math.max(0.85, Math.min(1.15, predictY));
         }
         
-        if (distSq < hitRadiusSq) {
-          hitBall('player', pp, timestamp);
+        // Move towards target
+        const dx = aiTarget.x - cp.x;
+        const dy = aiTarget.y - cp.y;
+        const moveSpeed = AI.speed * dt;
+        
+        if (Math.abs(dx) > 0.01) {
+          cp.x += Math.sign(dx) * Math.min(moveSpeed, Math.abs(dx));
+        }
+        if (Math.abs(dy) > 0.01) {
+          cp.y += Math.sign(dy) * Math.min(moveSpeed * 0.7, Math.abs(dy));
+        }
+        
+      } else {
+        // Return to center
+        cp.x += (0 - cp.x) * 3 * dt;
+        cp.y += (0.95 - cp.y) * 3 * dt;
+        aiReactionTimer = 0;
+      }
+    }
+    
+    // ============ COLLISION ============
+    const HIT_COOLDOWN = 200;
+    const HIT_RADIUS = 0.18;
+    const HIT_RADIUS_SQ = HIT_RADIUS * HIT_RADIUS;
+    
+    function updatePaddleTracking(dt) {
+      const pos = getPaddleWorldPos();
+      if (!pos) return;
+      
+      if (dt > 0.001) {
+        paddleVelocity.x = (pos.x - lastPaddlePos.x) / dt;
+        paddleVelocity.y = (pos.y - lastPaddlePos.y) / dt;
+        paddleVelocity.z = (pos.z - lastPaddlePos.z) / dt;
+      }
+      
+      lastPaddlePos.copy(pos);
+    }
+    
+    function checkCollisions(now) {
+      if (!ball || !ball.object3D) return;
+      if (now - lastHitTime < HIT_COOLDOWN) return;
+      
+      const bp = ball.object3D.position;
+      
+      // Player paddle
+      if (lastHit !== 'player') {
+        const pp = getPaddleWorldPos();
+        if (pp) {
+          const dist = bp.distanceToSquared(pp);
+          if (dist < HIT_RADIUS_SQ) {
+            hitBall('player', pp);
+          }
         }
       }
       
       // CPU paddle
-      if (cpuPaddle && cpuPaddle.object3D && lastHit !== 'cpu') {
+      if (lastHit !== 'cpu' && cpuPaddle && cpuPaddle.object3D) {
         const cp = cpuPaddle.object3D.position;
-        const distSq = Math.pow(bp.x - cp.x, 2) + Math.pow(bp.y - cp.y, 2) + Math.pow(bp.z - cp.z, 2);
-        
-        if (distSq < hitRadiusSq) {
-          hitBall('cpu', cp, timestamp);
+        const dist = Math.pow(bp.x - cp.x, 2) + Math.pow(bp.y - cp.y, 2) + Math.pow(bp.z - cp.z, 2);
+        if (dist < HIT_RADIUS_SQ) {
+          hitBall('cpu', cp);
         }
       }
     }
     
-    // ============ HIT BALL ============
-    function hitBall(who, paddlePos, timestamp) {
-      if (!ball || !ball.object3D) return;
-      
+    function hitBall(who, paddlePos) {
       lastHit = who;
-      lastHitTime = timestamp;
+      lastHitTime = performance.now();
       
       const bp = ball.object3D.position;
       const dir = who === 'player' ? -1 : 1;
       
-      const hitRadius = inVR ? HIT_RADIUS_VR : HIT_RADIUS_DESKTOP;
-      const offsetX = (bp.x - paddlePos.x) / hitRadius;
-      const offsetY = (bp.y - paddlePos.y) / hitRadius;
+      // Offset from paddle center affects angle
+      const offsetX = (bp.x - paddlePos.x) / HIT_RADIUS;
+      const offsetY = (bp.y - paddlePos.y) / HIT_RADIUS;
       
-      let speed = 4.5;
-      let hitSpin = { x: 0, y: 0 };
+      let speed = 5.0;
       
       if (who === 'player') {
-        // Player hit - use paddle velocity
-        speed += Math.min(4, Math.abs(paddleVelocity.z) * 0.4);
-        hitSpin.x = paddleVelocity.z * 0.15; // Forward motion = topspin
-        hitSpin.y = paddleVelocity.x * 0.2;  // Side motion = sidespin
-        triggerHaptic(0.6, 80);
+        // Add paddle velocity
+        speed += Math.min(3, Math.abs(paddleVelocity.z) * 0.3);
+        triggerHaptic(0.7, 100);
+        log('HIT!');
       } else {
-        // CPU hit - based on difficulty
-        speed += currentDifficulty.aggression * 2;
-        hitSpin.x = (Math.random() - 0.5) * currentDifficulty.aggression * 10;
-        hitSpin.y = (Math.random() - 0.5) * currentDifficulty.aggression * 5;
+        // CPU hits harder
+        speed = AI.returnSpeed + Math.random() * 1.5;
       }
       
       ballVel = {
-        x: offsetX * 2.5 + (who === 'player' ? paddleVelocity.x * 0.15 : (Math.random()-0.5)*1.5),
-        y: 1.5 + offsetY * 0.5 + Math.random() * 0.5,
+        x: offsetX * 2 + (who === 'player' ? paddleVelocity.x * 0.1 : (Math.random() - 0.5) * 2),
+        y: 1.2 + offsetY * 0.5 + Math.random() * 0.4,
         z: dir * speed
       };
       
-      ballSpin = {
-        x: hitSpin.x,
-        y: hitSpin.y,
-        z: 0
-      };
-      
-      log(`${who} hit! speed=${speed.toFixed(1)} spin=(${hitSpin.x.toFixed(1)},${hitSpin.y.toFixed(1)})`);
-      
-      // Visual feedback
-      if (ball.object3D.children[0]?.material) {
-        const mesh = ball.object3D.children[0];
-        mesh.material.color.setHex(who === 'player' ? 0x4caf50 : 0xf44336);
-        setTimeout(() => { if (mesh.material) mesh.material.color.setHex(0xff9800); }, 100);
-      }
+      // Visual flash
+      ball.setAttribute('color', who === 'player' ? '#4caf50' : '#f44336');
+      setTimeout(() => ball.setAttribute('color', '#ff9800'), 100);
     }
     
     // ============ SCORING ============
     function scored(winner) {
       playing = false;
-      if (winner === 'player') myScore++; else cpuScore++;
+      
+      if (winner === 'player') myScore++;
+      else cpuScore++;
       
       updateScore();
       resetBall();
+      
+      log(`Point: ${winner}`);
       
       if (myScore >= 11 || cpuScore >= 11) {
         const won = myScore > cpuScore;
         setMessage(won ? '🏆 YOU WIN!' : '😢 CPU WINS');
         triggerHaptic(won ? 1.0 : 0.2, 300);
-        log(won ? 'PLAYER WINS!' : 'CPU WINS!');
         
         setTimeout(() => {
           myScore = cpuScore = 0;
@@ -744,7 +513,7 @@
         }, 3000);
       } else {
         setMessage('TRIGGER = Serve');
-        triggerHaptic(winner === 'player' ? 0.7 : 0.3, 100);
+        triggerHaptic(winner === 'player' ? 0.6 : 0.2, 100);
       }
     }
     
@@ -752,26 +521,20 @@
       if (!ball || !ball.object3D) return;
       ball.object3D.position.set(0, 1.3, -0.3);
       ballVel = { x: 0, y: 0, z: 0 };
-      ballSpin = { x: 0, y: 0, z: 0 };
       lastHit = '';
-      if (lastPaddlePos) lastPaddlePos.set(0, 0, 0);
-      paddleVelocity = { x: 0, y: 0, z: 0 };
-      aiState.hasReacted = false;
-      aiState.swingPhase = 'ready';
     }
     
     // ============ UI ============
     function updateScore() {
       const txt = `${myScore} — ${cpuScore}`;
-      const hud = document.getElementById('hud');
-      const vrScore = document.getElementById('vr-score');
-      if (hud) hud.textContent = txt;
-      if (vrScore) vrScore.setAttribute('value', txt);
+      document.getElementById('hud').textContent = txt;
+      const vs = document.getElementById('vr-score');
+      if (vs) vs.setAttribute('value', txt);
     }
     
     function setMessage(msg) {
-      const vrMsg = document.getElementById('vr-msg');
-      if (vrMsg) vrMsg.setAttribute('value', msg);
+      const vm = document.getElementById('vr-msg');
+      if (vm) vm.setAttribute('value', msg);
     }
     
     // ============ GAME LOOP ============
@@ -779,14 +542,28 @@
       const dt = Math.min((timestamp - lastFrameTime) / 1000, 0.05);
       lastFrameTime = timestamp;
       
-      if (!initialized) { requestAnimationFrame(gameLoop); return; }
-      
-      updatePaddleTracking(dt);
-      
-      if (playing) {
-        updateBallPhysics(dt);
-        updateAI(dt);
-        checkCollisions(timestamp);
+      if (initialized) {
+        updatePaddleTracking(dt);
+        
+        if (playing) {
+          updateBall(dt);
+          updateAI(dt);
+          checkCollisions(timestamp);
+        }
+        
+        // Continuous debug info in VR
+        if (inVR) {
+          const pp = getPaddleWorldPos();
+          if (pp) {
+            const vrDbg = document.getElementById('vr-debug');
+            if (vrDbg) {
+              vrDbg.setAttribute('value', 
+                `Paddle: ${pp.x.toFixed(2)}, ${pp.y.toFixed(2)}, ${pp.z.toFixed(2)}\n` +
+                `inVR: ${inVR} ctrl: ${controllerConnected}`
+              );
+            }
+          }
+        }
       }
       
       requestAnimationFrame(gameLoop);
@@ -798,13 +575,6 @@
     } else {
       init();
     }
-    
-    // Expose test functions globally
-    window.runPhysicsTests = runPhysicsTests;
-    window.runAITests = runAITests;
-    window.runAllTests = runAllTests;
-    window.testServe = testServe;
-    window.setDifficulty = setDifficulty;
   </script>
 </body>
 </html>
