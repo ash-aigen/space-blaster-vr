@@ -11,7 +11,7 @@
 <body>
   <div id="hud">0 — 0</div>
 
-  <a-scene webxr="requiredFeatures: local-floor">
+  <a-scene webxr="optionalFeatures: local-floor, bounded-floor; requiredFeatures: local">
     <a-sky color="#1a1a2e"></a-sky>
     <a-plane rotation="-90 0 0" width="20" height="20" color="#16213e"></a-plane>
     <a-light type="ambient" intensity="0.5"></a-light>
@@ -57,6 +57,7 @@
     <!-- VR UI -->
     <a-text id="vr-score" value="0 — 0" position="0 2.2 -1.5" align="center" color="#fff" width="6"></a-text>
     <a-text id="vr-msg" value="Press any button to serve!" position="0 1.9 -1.5" align="center" color="#4fc3f7" width="3"></a-text>
+    <a-text id="vr-debug" value="" position="0 2.5 -1.5" align="center" color="#0f0" width="4"></a-text>
 
     <!-- Player camera -->
     <a-entity position="0 0 1">
@@ -130,9 +131,18 @@
       xrSession = renderer.xr?.getSession?.();
       if (!xrSession) return;
       
-      xrSession.requestReferenceSpace('local-floor')
-        .then(s => { xrRefSpace = s; })
-        .catch(() => xrSession.requestReferenceSpace('local').then(s => { xrRefSpace = s; }));
+      // Try different reference spaces - stationary mode may need 'local'
+      xrSession.requestReferenceSpace('local')
+        .then(s => { 
+          xrRefSpace = s; 
+          console.log('Using LOCAL reference space');
+        })
+        .catch(() => {
+          xrSession.requestReferenceSpace('local-floor').then(s => { 
+            xrRefSpace = s;
+            console.log('Using LOCAL-FLOOR reference space');
+          });
+        });
       
       function findController() {
         for (const src of xrSession.inputSources) {
@@ -360,6 +370,12 @@
                 // Debug sphere at exact grip position
                 if (gripDebug?.object3D) {
                   gripDebug.object3D.position.set(p.x, p.y, p.z);
+                }
+                
+                // Show position in VR
+                const dbgEl = document.getElementById('vr-debug');
+                if (dbgEl) {
+                  dbgEl.setAttribute('value', `Grip: ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
                 }
               }
             } catch(e) {}
